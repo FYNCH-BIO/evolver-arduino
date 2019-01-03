@@ -43,7 +43,7 @@ void setup() {
 }
 
 void loop() {
-  serialEvent();
+  serialEvent(1);
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString); 
@@ -60,14 +60,18 @@ void loop() {
   stringComplete = false;
 }
 
-void serialEvent() {
-    while (Serial1.available()) {
-      char inChar = (char)Serial1.read();
-      inputString += inChar;
-      if (inChar == '!') {
-        stringComplete = true;
+void serialEvent(int time_wait) {
+  for (int n=0; n<time_wait; n++) {
+      while (Serial1.available()) {
+        char inChar = (char)Serial1.read();
+        inputString += inChar;
+        if (inChar == '!') {
+          stringComplete = true;
+        }
       }
-    }
+    delay(1);
+  }
+  
 }
 
 void read_MuxShield() {
@@ -79,8 +83,7 @@ void read_MuxShield() {
   for (int n=0; n < num_vials; n++){
     Tlc.set(LEFT_PWM,n, 4095 - in.input_array[n].toInt());
     while(Tlc.update());
-    
-    delay(10);
+    serialEvent(10);
     for (int h=0; h<(times_avg); h++){
       mux_total[n] = mux_total[n] + readMux(n);  
     }
