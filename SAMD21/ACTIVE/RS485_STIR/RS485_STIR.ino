@@ -88,7 +88,6 @@ void serialEvent(int time_wait) {
       while (Serial1.available()) {
         char inChar = (char)Serial1.read();
         inputString += inChar;
-        SerialUSB.println(inputString);
         if (inChar == '!') {
           stringComplete = true;
         }
