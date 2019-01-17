@@ -5,6 +5,7 @@
 // Serial Event Variables
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
+boolean serialAvailable = true;  // if serial port is ok to write on
 
 // Mux Control Pins
 int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_PIN = 0;
@@ -66,7 +67,7 @@ void setup() {
   SerialUSB.begin(9600);
   // reserve 1000 bytes for the inputString:
   inputString.reserve(1000);
-  
+
   while (!Serial1);
 
   for (int i = 0; i < num_vials; i++) {
@@ -82,13 +83,21 @@ void loop() {
     in.analyzeAndCheck(inputString);
 
     if (in.addressFound) {
-      SerialUSB.println("Updating Values!");
-      update_Values();
+      if (in.input_array[0] == "sf") {
+        serialAvailable = false;
+      }
+      else if (in.input_array[0] == "st") {
+        serialAvailable = true;
+      }
+      else {
+        SerialUSB.println("Updating Values!");
+        read_MuxShield();
+        update_Values();
+      }
       in.addressFound = false;
     }
     inputString = "";
   }
-  read_MuxShield();
   // clear the string:
   stringComplete = false;
 }
@@ -101,22 +110,22 @@ void serialEvent() {
         stringComplete = true;
       }
     }
-  
+
 }
 
 void update_Values() {
   digitalWrite(12, HIGH);
-  Serial1.print(data);
+  String outputString = data;
   for (int i = 0; i < num_vials; i = i + 1) {
     if (in.input_array[i] != "NaN") {
       Setpoint[i] = (double)in.input_array[i].toFloat();
     }
-    Serial1.print((int)Input[i]);
-    Serial1.print(comma);
+    outputString += String((int)Input[i]) + comma;
   }
-
-  Serial1.print(end_mark);
-  Serial1.println();
+  outputString += end_mark;
+  if (serialAvailable) {
+    Serial1.println(outputString);
+  }
   digitalWrite(12, LOW);
 }
 

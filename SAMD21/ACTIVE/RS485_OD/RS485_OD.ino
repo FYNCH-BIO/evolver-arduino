@@ -4,6 +4,7 @@
 // String Input
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
+boolean serialAvailable = true;  // if serial port is ok to write on
 
 // Mux Shield Components and Control Pins
 int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = 0;
@@ -49,8 +50,17 @@ void loop() {
     in.analyzeAndCheck(inputString); 
 
     if (in.addressFound) {
-      SerialUSB.println("Updating Values!");
-      read_MuxShield();;
+      if (in.input_array[0] == "sf") {
+        serialAvailable = false;
+      }
+      else if (in.input_array[0] == "st") { 
+        serialAvailable = true;
+      }
+      else {
+        SerialUSB.println("Updating Values!");
+        read_MuxShield();;
+
+      }
       in.addressFound = false;
     }
     inputString = "";
@@ -92,15 +102,15 @@ void read_MuxShield() {
     //while(Tlc.update());
   }
   digitalWrite(12, HIGH);
-  Serial1.print(data);
-  
-  for (int n=0; n<num_vials; n++){
-    Serial1.print(mux_readings[n]);
-    Serial1.print(comma);
+  String outputString = data;
+  for (int n = 0; n < num_vials; n++) {
+    outputString += mux_readings[n];
+    outputString += comma;
   }
-  
-  Serial1.print(end_mark);
-  Serial1.println();
+  outputString += end_mark;
+  if (serialAvailable) {
+    Serial1.println(outputString);
+  }
   digitalWrite(12, LOW);
 }
 
