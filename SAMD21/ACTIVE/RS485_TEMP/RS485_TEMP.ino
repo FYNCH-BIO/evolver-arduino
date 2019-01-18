@@ -91,13 +91,14 @@ void loop() {
       }
       else {
         SerialUSB.println("Updating Values!");
-        read_MuxShield();
         update_Values();
       }
       in.addressFound = false;
     }
     inputString = "";
   }
+  // Update PID every loop for better temp control
+  read_MuxShield();
   // clear the string:
   stringComplete = false;
 }
