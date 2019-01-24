@@ -21,9 +21,9 @@ String end_mark = "end";
 evolver_si in("xr", " !", num_vials);
 
 // PID Settings
-double Setpoint[] = {600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600};
+double Setpoint[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 double Output[16], Input[16];
-int Kp = 650;
+int Kp = 6500;
 int Ki = 20;
 int Kd = 2;
 
@@ -59,7 +59,7 @@ void setup() {
   digitalWrite(s2, LOW);
   digitalWrite(s3, LOW);
 
-  //analogReadResolution(12);
+  analogReadResolution(12);
 
   Tlc.init(LEFT_PWM,4095);
   // initialize serial:
