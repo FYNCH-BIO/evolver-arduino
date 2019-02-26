@@ -22,6 +22,7 @@ evolver_si in("st", " !", 18);
 evolver_si fromqueue("st", " !", 18);
 
 const int numPumps = 32;
+const int numIppPumps = 3;
 String fluid_mode = "";
 String inputString = "";
 String binaryString = "";
@@ -49,18 +50,18 @@ class Pump {
   public:
     Pump() {}
 
-    // Sets address for each pump + efflux pump if applicable. 
-    void init(int addrInit, int effluxAddrInit = NULL) {      
+    // Sets address for each pump + efflux pump if applicable.
+    void init(int addrInit, int effluxAddrInit = NULL) {
       addr = addrInit;
       if (effluxAddrInit) {
         effluxAddr = effluxAddrInit;
       }
-      else {        
+      else {
         effluxAddr = addr + 16;
       }
     }
 
-    // Checks based on settings whether to start/stop pumping. 
+    // Checks based on settings whether to start/stop pumping.
     void update() {
       unsigned long currentMillis = millis();
       // Stop pump if pump is running and time expired.
@@ -79,8 +80,8 @@ class Pump {
       if (numberTimesToPump != 0 && currentMillis - previousMillis > pumpInterval && !pumpRunning) {
         // No need to subtract if already < 0
         if (numberTimesToPump > 0) {
-          numberTimesToPump = numberTimesToPump - 1; 
-        }        
+          numberTimesToPump = numberTimesToPump - 1;
+        }
         previousMillis = currentMillis;
         pumpRunning = true;
         Tlc.set(LEFT_PWM, addr, speedset[1]);
@@ -123,7 +124,63 @@ class Pump {
     }
 };
 
+class PeristalticPump {
+  int solenoid1;
+  int solenoid2;
+  int solenoid3;
+
+  int solenoidState;
+  unsigned long previousMillis;
+  long holdTime;
+
+  public:
+  PeristalticPump(int valve1, int valve2, int valve3, long switchTime) {
+    solenoid1 = valve1;
+    solenoid2 = valve2;
+    solenoid3 = valve3;
+    holdTime = switchTime;
+    solenoidState = 1;
+    previousMillis = 0;
+  }
+
+  void Update(long delayValue) {
+    unsigned long currentMillis = millis();
+    holdTime = delayValue;
+
+    if((solenoidState == 1 ) && (currentMillis - previousMillis >= holdTime)) {
+      solenoidState = 2;
+      previousMillis = currentMillis;
+      Tlc.set(LEFT_PWM, solenoid1, speedset[0]);
+      Tlc.set(LEFT_PWM, solenoid2, speedset[1]);
+    }
+    else if ((solenoidState == 2) && (currentMillis - previousMillis >= holdTime)) {
+      solenoidState = 3;
+      previousMillis = currentMillis;
+      Tlc.set(LEFT_PWM, solenoid2, speedset[0]);
+      Tlc.set(LEFT_PWM, solenoid3, speedset[1]);
+    }
+    else if ((solenoidState == 3) && (currentMillis - previousMillis >= holdTime)) {
+      solenoidState = 1;
+      previousMillis = currentMillis;
+      Tlc.set(LEFT_PWM, solenoid3, speedset[0]);
+      Tlc.set(LEFT_PWM, solenoid1, speedset[1]);
+    }
+  }
+  void turnOff() {
+    holdTime = 999999999;
+    Tlc.set(LEFT_PWM, solenoid1, speedset[0]);
+    Tlc.set(LEFT_PWM, solenoid2, speedset[0]);
+    Tlc.set(LEFT_PWM, solenoid3, speedset[0]);
+  }
+};
+
 Pump pumps[numPumps];
+int valveDelays[] = {999999999, 999999999, 999999999};
+PeristalticPump pump1(32,33,34, 999999999);
+PeristalticPump pump2(35,36,37, 999999999);
+PeristalticPump pump3(40,41,42, 999999999);
+
+int ippAddresses[] = {32, 33, 34, 35, 36, 37, 40, 41, 42};
 
 void setup() {
   pinMode(12, OUTPUT);
@@ -166,10 +223,10 @@ void loop() {
       fluid_mode = in.input_array[0]; // Obtains Fluid Mode ("p" or "o")
 
       if (fluid_mode == "p") {
-        timeToPump = in.input_array[1].toDouble();        
+        timeToPump = in.input_array[1].toDouble();
         timeToEffluxPump = in.input_array[2].toDouble();
-        pumpInterval = in.input_array[3].toInt();        
-        numberTimesToPump = in.input_array[4].toInt();        
+        pumpInterval = in.input_array[3].toInt();
+        numberTimesToPump = in.input_array[4].toInt();
         runEfflux = in.input_array[5].toInt();
         binaryString = in.input_array[6];
 
@@ -180,6 +237,11 @@ void loop() {
             pumps[i].setPump(timeToPump, timeToEffluxPump, pumpInterval, numberTimesToPump, runEfflux);
           }
         }
+      }
+      if (fluid_mode == "i") {
+        valveDelays[0] = in.input_array[1].toInt();
+        valveDelays[1] = in.input_array[2].toInt();
+        valveDelays[2] = in.input_array[3].toInt();
       }
     }
     // clear the string:
@@ -192,9 +254,15 @@ void loop() {
   for (int i = 0; i < numPumps; i++) {
     if (fluid_mode == "o") {
       pumps[i].turnOff();
+      pump1.turnOff();
+      pump2.turnOff();
+      pump3.turnOff();
     }
     else {
-      pumps[i].update(); 
+      pumps[i].update();
+      pump1.Update(valveDelays[0]);
+      pump2.Update(valveDelays[1]);
+      pump3.Update(valveDelays[2]);
     }
   }
 
