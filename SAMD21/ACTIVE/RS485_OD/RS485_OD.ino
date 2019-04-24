@@ -47,13 +47,13 @@ void loop() {
   serialEvent(1);
   if (stringComplete) {
     SerialUSB.println(inputString);
-    in.analyzeAndCheck(inputString); 
+    in.analyzeAndCheck(inputString);
 
     if (in.addressFound) {
       if (in.input_array[0] == "sf") {
         serialAvailable = false;
       }
-      else if (in.input_array[0] == "st") { 
+      else if (in.input_array[0] == "st") {
         serialAvailable = true;
       }
       else {
@@ -81,21 +81,21 @@ void serialEvent(int time_wait) {
       }
     delay(1);
   }
-  
+
 }
 
 void read_MuxShield() {
-  int times_avg = 100; 
+  int times_avg = 100;
   unsigned long mux_total[num_vials];
   int mux_readings[num_vials];
-  
+
   memset(mux_total,0,sizeof(mux_total));
   for (int n=0; n < num_vials; n++){
     Tlc.set(LEFT_PWM,n, 4095 - in.input_array[n].toInt());
     while(Tlc.update());
     serialEvent(10);
     for (int h=0; h<(times_avg); h++){
-      mux_total[n] = mux_total[n] + readMux(n);  
+      mux_total[n] = mux_total[n] + readMux(n);
     }
     mux_readings[n] = mux_total[n] / times_avg;
     //Tlc.set(LEFT_PWM,n, 4095);
@@ -147,5 +147,3 @@ int readMux(int channel){
   //return the value
   return val;
 }
-
-

@@ -10,7 +10,7 @@ String end_mark = "end";
 int num_vials = 16;
 evolver_si in("zv"," !", num_vials);
 
-int Input[] = {10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10};
+int Input[] = {8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8};
 
 void setup()
 {
