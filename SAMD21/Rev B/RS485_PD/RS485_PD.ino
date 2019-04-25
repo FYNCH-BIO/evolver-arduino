@@ -88,6 +88,7 @@ void read_MuxShield() {
   int mux_readings[num_vials];
 
   memset(mux_total,0,sizeof(mux_total));
+  serialEvent(50);
   for (int n=0; n < num_vials; n++){
     for (int h=0; h<(times_avg); h++){
       mux_total[n] = mux_total[n] + readMux(n);
