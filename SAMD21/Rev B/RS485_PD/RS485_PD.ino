@@ -6,12 +6,14 @@ boolean stringComplete = false;  // whether the string is complete
 boolean serialAvailable = true;  // if serial port is ok to write on
 
 // Mux Shield Components and Control Pins
-int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = 0;
+int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = A0;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
 String comma = ",";
 String data = "turb";
 String end_mark = "end";
+int active_vial = 0;
+int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
 
 // Evolver Inputs
 evolver_si in("we", " !", num_vials);
@@ -42,7 +44,9 @@ void setup() {
 }
 
 void loop() {
-  serialEvent(1);
+  SerialUSB.print("Reading Vial:");
+  SerialUSB.println(active_vial);
+  read_MuxShield();;
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
@@ -55,9 +59,8 @@ void loop() {
         serialAvailable = true;
       }
       else {
-        SerialUSB.println("Updating Values!");
-        read_MuxShield();;
-
+        SerialUSB.println("Outputting Data!");
+        dataResponse();
       }
       in.addressFound = false;
     }
@@ -77,28 +80,39 @@ void serialEvent(int time_wait) {
           stringComplete = true;
         }
       }
-    delay(1);
   }
 
 }
 
 void read_MuxShield() {
-  int times_avg = 100;
-  unsigned long mux_total[num_vials];
-  int mux_readings[num_vials];
-
-  memset(mux_total,0,sizeof(mux_total));
-  serialEvent(50);
-  for (int n=0; n < num_vials; n++){
-    for (int h=0; h<(times_avg); h++){
-      mux_total[n] = mux_total[n] + readMux(n);
+  int times_avg = 1000;
+  unsigned long mux_total=0;
+  
+  for (int h=0; h<(times_avg); h++){
+    mux_total = mux_total + readMux(active_vial);
+    serialEvent(1);
+    if (stringComplete){
+      SerialUSB.println("String Completed, stop averaging");
+      SerialUSB.println(h);
+      break;
     }
-    mux_readings[n] = mux_total[n] / times_avg;
   }
+  if (!stringComplete){
+    output[active_vial] = mux_total / times_avg;
+    SerialUSB.println(output[active_vial]);
+    if (active_vial == 15){
+      active_vial = 0;
+    } else {
+      active_vial++;
+    }
+  }
+}
+
+int dataResponse (){
   digitalWrite(12, HIGH);
   String outputString = data;
   for (int n = 0; n < num_vials; n++) {
-    outputString += mux_readings[n];
+    outputString += output[n];
     outputString += comma;
   }
   outputString += end_mark;
