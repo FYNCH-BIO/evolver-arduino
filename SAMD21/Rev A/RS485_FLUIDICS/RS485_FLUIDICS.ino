@@ -105,12 +105,14 @@ class Pump {
       runEfflux = runEffluxSet;
 
       // Start pump and set timing
-      previousMillis = millis();
-      pumpRunning = true;
-      Tlc.set(LEFT_PWM, addr, speedset[1]);
-      if (runEfflux) {
-        effluxRunning = true;
-        Tlc.set(LEFT_PWM, effluxAddr, speedset[1]);
+      if (timeToPumpSet > 0) {
+        previousMillis = millis();
+        pumpRunning = true;
+        Tlc.set(LEFT_PWM, addr, speedset[1]);
+        if (runEfflux) {
+          effluxRunning = true;
+          Tlc.set(LEFT_PWM, effluxAddr, speedset[1]);
+        }
       }
     }
 
