@@ -9,6 +9,7 @@ int num_vials = 16;
 evolver_si in("jw"," !", num_vials*2);
 
 int Input[16];
+double Setpoint[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
 void setup()
 {
@@ -33,18 +34,22 @@ void loop() {
       SerialUSB.println("Address Found");
       for (int i = 0; i < num_vials; i++) {
         Input[i] =  in.input_array[i].toInt();
-        Tlc.set(LEFT_PWM, i, Input[i]);
+        Setpoint[i] = Input[i];
       }
       for (int i = 0; i < num_vials; i++) {
         Input[i] =  in.input_array[i+num_vials].toInt();
-        Tlc.set(RIGHT_PWM, i, Input[i]);
+        Setpoint[i+num_vials] = Input[i];
       }
-      while(Tlc.update());
 
     }
     else {
       SerialUSB.println("Address Not Found");
     }
+    for (int i = 0; i < num_vials; i++) {
+      Tlc.set(LEFT_PWM, i, Setpoint[i]);
+      Tlc.set(RIGHT_PWM, i, Setpoint[i+num_vials]); 
+    }
+    while(Tlc.update());    
     inputString = "";
     stringComplete = false;
     in.addressFound = false;
