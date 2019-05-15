@@ -28,7 +28,7 @@ String binaryString = "";
 boolean stringComplete = false;
 double timeToPump;
 double timeToEffluxPump;
-int pumpInterval;
+double pumpInterval;
 int numberTimesToPump;
 int runEfflux;
 int speedset[2] = {4095, 0}; // (fully off, max speed)
@@ -38,9 +38,9 @@ class Pump {
   boolean effluxRunning = false;
   int addr;
   int effluxAddr;
-  int timeToPump = 0;
-  int timeToEffluxPump = 0;
-  int pumpInterval = 0;
+  double timeToPump = 0;
+  double timeToEffluxPump = 0;
+  double pumpInterval = 0;
   int numberTimesToPump = 0;
   unsigned long previousMillis = 0;
   int runEfflux = 0;
@@ -49,18 +49,18 @@ class Pump {
   public:
     Pump() {}
 
-    // Sets address for each pump + efflux pump if applicable. 
-    void init(int addrInit, int effluxAddrInit = NULL) {      
+    // Sets address for each pump + efflux pump if applicable.
+    void init(int addrInit, int effluxAddrInit = NULL) {
       addr = addrInit;
       if (effluxAddrInit) {
         effluxAddr = effluxAddrInit;
       }
-      else {        
+      else {
         effluxAddr = addr + 16;
       }
     }
 
-    // Checks based on settings whether to start/stop pumping. 
+    // Checks based on settings whether to start/stop pumping.
     void update() {
       unsigned long currentMillis = millis();
       // Stop pump if pump is running and time expired.
@@ -79,8 +79,8 @@ class Pump {
       if (numberTimesToPump != 0 && currentMillis - previousMillis > pumpInterval && !pumpRunning) {
         // No need to subtract if already < 0
         if (numberTimesToPump > 0) {
-          numberTimesToPump = numberTimesToPump - 1; 
-        }        
+          numberTimesToPump = numberTimesToPump - 1;
+        }
         previousMillis = currentMillis;
         pumpRunning = true;
         Tlc.set(LEFT_PWM, addr, speedset[1]);
@@ -92,7 +92,7 @@ class Pump {
     }
 
     // Turns on the pump based on passed command
-    void setPump(float timeToPumpSet, float timeToEffluxPumpSet, int pumpIntervalSet, int numberTimesToPumpSet, int runEffluxSet) {
+    void setPump(double timeToPumpSet, double timeToEffluxPumpSet, double pumpIntervalSet, int numberTimesToPumpSet, int runEffluxSet) {
       timeToPump = timeToPumpSet * 1000; // convert to millis
       timeToEffluxPump = timeToEffluxPumpSet * 1000; //convert to millis
       pumpInterval = pumpIntervalSet * 1000; // conver to millis
@@ -168,10 +168,10 @@ void loop() {
       fluid_mode = in.input_array[0]; // Obtains Fluid Mode ("p" or "o")
 
       if (fluid_mode == "p") {
-        timeToPump = in.input_array[1].toDouble();        
+        timeToPump = in.input_array[1].toDouble();
         timeToEffluxPump = in.input_array[2].toDouble();
-        pumpInterval = in.input_array[3].toInt();        
-        numberTimesToPump = in.input_array[4].toInt();        
+        pumpInterval = in.input_array[3].toDouble();
+        numberTimesToPump = in.input_array[4].toInt();
         runEfflux = in.input_array[5].toInt();
         binaryString = in.input_array[6];
 
@@ -196,7 +196,7 @@ void loop() {
       pumps[i].turnOff();
     }
     else {
-      pumps[i].update(); 
+      pumps[i].update();
     }
   }
 
