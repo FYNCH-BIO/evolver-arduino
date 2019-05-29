@@ -30,14 +30,14 @@ void evolver_si::analyzeAndCheck(String inputString){
 
   //
 	// // // Finds and prints the indx of the starting address, ending address, and empty address
-	int start_indx = inputString.indexOf(_start_Address);
-	int end_indx = inputString.indexOf(_end_Address);
+	int start_indx = inputString.lastIndexOf(_start_Address);
+	int end_indx = inputString.lastIndexOf(_end_Address);
 	if (start_indx != -1 && end_indx != -1){
 
 		// Figure out
 		inputString = inputString.substring(start_indx,end_indx+sizeof(_end_Address));
-	 	start_indx = inputString.indexOf(_start_Address);
-	 	end_indx = inputString.indexOf(_end_Address);
+	 	start_indx = inputString.lastIndexOf(_start_Address);
+	 	end_indx = inputString.lastIndexOf(_end_Address);
 
 		//Serial.println(inputString);
 
