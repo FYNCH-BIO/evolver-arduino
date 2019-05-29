@@ -6,8 +6,8 @@
 //// Accepted values for <MODE>: "p" (for pump), "o" (for off).
 //// Sample Commands sent over RS485 (Serial1):
 //// Turn on pump 3 for 5s every 10s indefinitely (by passing negative value to <times to repeat>), with 2s of efflux extra after: "stp,5,2,10,-1,1,100,0,0,0,0,0,0,0,0,0,0,0, !"
-//// Turn on pump 18 as efflux for 10s one time: "stp,10,0,0,0,0,100000000000000000,0,0,0,0,0,0,0,0,0,0,0, !"
-//// Force all pumps to stop: "sto,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, !"
+//// Turn on pump 18 as efflux for 10s one time: "stc,p,10,0,0,0,0,100000000000000000,0,0,0,0,0,0,0,0,0,0,0, !"
+//// Force all pumps to stop: "stc,o,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, !"
 //// Individual or subsets of pumps can be stopped by sending a command to them with a "0" for the pump time.
 
 //// NOTES:
@@ -18,8 +18,12 @@
 #include <evolver_si.h>
 #include <Tlc5940.h>
 
-evolver_si in("st", " !", 18);
-evolver_si fromqueue("st", " !", 18);
+int expected_inputs = 19;
+String address = "st";
+String comma = ",";
+String end_mark = "end";
+evolver_si in("st", " !", expected_inputs);
+
 
 const int numPumps = 32;
 String fluid_mode = "";
@@ -145,14 +149,30 @@ void setup() {
 }
 
 void serialEvent() {
-  while (Serial1.available()) {
-    char inChar = (char)Serial1.read();
+  while (SerialUSB.available()) {
+    char inChar = (char)SerialUSB.read();
     inputString += inChar;
     if (inChar == '!') {
       stringComplete = true;
     }
   }
 }
+
+void echoCommand() {
+  digitalWrite(12, HIGH);
+  
+  String outputString = address + "e,";
+  for (int n = 1; n < expected_inputs; n++) {
+    outputString += in.input_array[n];
+    outputString += comma;
+  }
+  outputString += end_mark;
+  SerialUSB.println(outputString);
+  Serial1.println(outputString);
+  
+  digitalWrite(12, LOW);
+}
+
 
 void loop() {
   // Read Serial Inputs and checks if it is the right addresses
@@ -163,15 +183,21 @@ void loop() {
 
     if (in.addressFound) {
       SerialUSB.println("Input Address Found");
-      fluid_mode = in.input_array[0]; // Obtains Fluid Mode ("p" or "o")
+            
+      if (in.input_array[0] == "c") {
+        SerialUSB.println("Echoing command!");
+        echoCommand();
+      }
 
+      fluid_mode = in.input_array[1]; // Obtains Fluid Mode ("p" or "o")
+      
       if (fluid_mode == "p") {
-        timeToPump = in.input_array[1].toDouble();        
-        timeToEffluxPump = in.input_array[2].toDouble();
-        pumpInterval = in.input_array[3].toInt();        
-        numberTimesToPump = in.input_array[4].toInt();        
-        runEfflux = in.input_array[5].toInt();
-        binaryString = in.input_array[6];
+        timeToPump = in.input_array[2].toDouble();        
+        timeToEffluxPump = in.input_array[3].toDouble();
+        pumpInterval = in.input_array[4].toInt();        
+        numberTimesToPump = in.input_array[5].toInt();        
+        runEfflux = in.input_array[6].toInt();
+        binaryString = in.input_array[7];
 
         // Parses binaryString and sets the pumps accordingly. Applies the command to every pump seen with '1' in the string, with pump 0 being the right-most value in the string
         // For example, a binaryString of 101001 turns on pumps 0, 3, and 5
@@ -181,9 +207,10 @@ void loop() {
           }
         }
       }
+
+      inputString = "";
     }
     // clear the string:
-    inputString = "";
     stringComplete = false;
     in.addressFound = false;
   }
@@ -200,4 +227,10 @@ void loop() {
 
   // Update the PWM - do not call this more than one time per loop
   Tlc.update();
+
+  //Clears strings if too long
+  if (inputString.length() >900){
+    SerialUSB.println("Cleared Input String");
+    inputString = "";
+  }
 }

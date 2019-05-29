@@ -1,3 +1,6 @@
+// Command: "xrc,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
+// Broadcast: "xrb,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
+
 #include <evolver_si.h>
 #include <Tlc5940.h>
 #include <PID_v1.h>
@@ -14,11 +17,11 @@ int num_vials = 16;
 // Mux Shield Values
 String comma = ",";
 String output_string = "";
-String data = "temp";
 String end_mark = "end";
 
 // Input Control
-evolver_si in("xr", " !", num_vials);
+String address = "xr";
+evolver_si in("xr", " !", num_vials+1);
 
 // PID Settings
 double Setpoint[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
@@ -83,16 +86,15 @@ void loop() {
     in.analyzeAndCheck(inputString);
 
     if (in.addressFound) {
-      if (in.input_array[0] == "sf") {
-        serialAvailable = false;
+      if (in.input_array[0] == "c") {
+        SerialUSB.println("Echoing temperature command!");
+        echoCommand();
       }
-      else if (in.input_array[0] == "st") {
-        serialAvailable = true;
+      else if (in.input_array[0] == "b") {
+        SerialUSB.println("Outputting Temp Data for Broadcast!");
+        dataResponse();
       }
-      else {
-        SerialUSB.println("Updating Values!");
-        update_Values();
-      }
+      
       in.addressFound = false;
     }
     inputString = "";
@@ -114,18 +116,39 @@ void serialEvent() {
 
 }
 
-void update_Values() {
+void echoCommand() {
   digitalWrite(12, HIGH);
-  String outputString = data;
+  
+  String outputString = address + "e,";
+  for (int n = 0; n < num_vials; n++) {
+    outputString += in.input_array[n+1];
+    outputString += comma;
+    if (in.input_array[n+1] != "NaN") {
+      Setpoint[n] = (double)in.input_array[n+1].toFloat();
+    }
+  }
+  outputString += end_mark;
+  if (serialAvailable) {
+    SerialUSB.println(outputString);
+    Serial1.println(outputString);
+  }
+  
+  digitalWrite(12, LOW);
+}
+
+void dataResponse() {
+  digitalWrite(12, HIGH);
+  String outputString = address + "d,";
   for (int i = 0; i < num_vials; i = i + 1) {
-    if (in.input_array[i] != "NaN") {
-      Setpoint[i] = (double)in.input_array[i].toFloat();
+    if (in.input_array[i+1] != "NaN") {
+      Setpoint[i] = (double)in.input_array[i+1].toFloat();
     }
     outputString += String((int)Input[i]) + comma;
   }
   outputString += end_mark;
   if (serialAvailable) {
     Serial1.println(outputString);
+    SerialUSB.println(outputString);
   }
   digitalWrite(12, LOW);
 }

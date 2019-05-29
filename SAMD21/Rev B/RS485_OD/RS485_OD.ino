@@ -1,15 +1,18 @@
-// Example Command: 'sxc,1000, !'
-// Example Broadcast: 'sxb,1000, !'
+// Example Photodidoe Command: 'wec,1000, !'
+// Example Photodiode Broadcast: 'web,1000, !'
 
+// Example LED Command: 'ldc,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
 
 #include <evolver_si.h>
+#include <Tlc5940.h>
 
 // String Input
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
+boolean serialAvailable = true;  // if serial port is ok to write on
 
 // Mux Shield Components and Control Pins
-int s0 = 2, s1 = 3, s2 = 4, s3 = 5, SIG_pin = A1;
+int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = A0;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
 String comma = ",";
@@ -17,11 +20,18 @@ String end_mark = "end";
 int active_vial = 0;
 int times_averaged = 1000;
 int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
+int Input[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
 // Evolver Inputs
 int expected_inputs = 2;
-String address = "sx";
-evolver_si in("sx", " !", expected_inputs);
+String photodiode_address = "we";
+// Photodiode Measurements
+evolver_si in("we", " !", expected_inputs); //3rd Input is same as expected_inputs
+// LED Settings
+String led_address = "ld";
+evolver_si led("ld", " !", num_vials+1); //3rd Input is same as expected_inputs
+
+
 
 void setup() {
   pinMode(12, OUTPUT);
@@ -41,11 +51,18 @@ void setup() {
   digitalWrite(s3, LOW);
 
   analogReadResolution(16);
+  Tlc.init(LEFT_PWM,4095);
   Serial1.begin(9600);
   SerialUSB.begin(9600);
   // reserve 1000 bytes for the inputString:
   inputString.reserve(1000);
   while (!Serial1);
+
+  for (int i = 0; i < num_vials; i++) {
+    Tlc.set(LEFT_PWM, i, 4095 - Input[i]);
+  }
+  while(Tlc.update());
+
 }
 
 void loop() {
@@ -55,23 +72,38 @@ void loop() {
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
+    led.analyzeAndCheck(inputString);
 
     if (in.addressFound) {
       times_averaged = in.input_array[1].toInt();
       
       if (in.input_array[0] == "c") {
-        SerialUSB.println("Echoing command!");
-        echoCommand();
+        SerialUSB.println("Echoing PD command!");
+        echoPhotodiode();
       }
       else if (in.input_array[0] == "b") {
-        SerialUSB.println("Outputting Data for Broadcast!");
+        SerialUSB.println("Outputting PD Data for Broadcast!");
         dataResponse();
       }
 
       in.addressFound = false;
       inputString = "";
     }
-    
+
+    if (led.addressFound) {
+      for (int i = 1; i < num_vials+1; i++) {
+        Tlc.set(LEFT_PWM, i, 4095 - led.input_array[i].toInt());
+      }
+      while(Tlc.update());
+      
+      if (led.input_array[0] == "c") {
+        SerialUSB.println("Echoing LED command!");
+        echoLED();
+      }
+      led.addressFound = false;
+      inputString = "";
+    }
+
     //Clears strings if too long
     if (inputString.length() >900){
       SerialUSB.println("Cleared Input String");
@@ -95,31 +127,53 @@ void serialEvent(int time_wait) {
   }
 }
 
-void echoCommand() {
+void echoPhotodiode() {
   digitalWrite(12, HIGH);
   
-  String outputString = address + "e,";
+  String outputString = photodiode_address + "e,";
   for (int n = 1; n < expected_inputs; n++) {
     outputString += in.input_array[n];
     outputString += comma;
   }
   outputString += end_mark;
-  SerialUSB.println(outputString);
-  Serial1.println(outputString);
+  if (serialAvailable) {
+    SerialUSB.println(outputString);
+    Serial1.println(outputString);
+  }
   
   digitalWrite(12, LOW);
 }
 
+void echoLED() {
+  digitalWrite(12, HIGH);
+  
+  String outputString = led_address + "e,";
+  for (int n = 1; n < num_vials+1 ; n++) {
+    outputString += led.input_array[n];
+    outputString += comma;
+  }
+  outputString += end_mark;
+  if (serialAvailable) {
+    SerialUSB.println(outputString);
+    Serial1.println(outputString);
+  }
+  
+  digitalWrite(12, LOW);
+}
+
+
 int dataResponse (){
   digitalWrite(12, HIGH);
-  String outputString = address + "d,";
+  String outputString = photodiode_address + "d,";
   for (int n = 0; n < num_vials; n++) {
     outputString += output[n];
     outputString += comma;
   }
   outputString += end_mark;
-  SerialUSB.println(outputString);
-  Serial1.println(outputString);
+  if (serialAvailable) {
+    SerialUSB.println(outputString);
+    Serial1.println(outputString);
+  }
   digitalWrite(12, LOW);
 }
 
