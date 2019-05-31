@@ -55,8 +55,8 @@ void evolver_si::analyzeAndCheck(String inputString){
 		if(num_commands == num_vials){
 			// Look through string between the two tags
 
-			for(int i = (start_indx + 2); i < end_indx; i++) {
-				// Once Comma is reached convert the string to int and store into output input_array
+			for(int i = (start_indx + strlen(_start_Address)); i < end_indx; i++) {
+				// Once Comma is reached store into output input_array
 				if (inputString[i] == ',') {
 					input_array[j] = temp_string;
 					j++;

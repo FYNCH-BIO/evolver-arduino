@@ -15,7 +15,7 @@ class evolver_si {
 		~evolver_si(void);
 		void analyzeAndCheck(String inputString);
 		boolean addressFound;
-		String input_array[32];
+		String input_array[50];
 		int num_vials;
 
 	private:
