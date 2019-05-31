@@ -1,7 +1,11 @@
-// Example Photodidoe Command: 'wec,1000, !'
-// Example Photodiode Broadcast: 'web,1000, !'
+// Recurring Command: 'od_90r,1000,_!'
+// Immediate Command: 'od_90i,1000,_!'
+// Acknowledgement to Run: 'od_90a,1000,_!'
 
-// Example LED Command: 'ldc,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
+
+// Recurring Command: 'od_ledr,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,_!"
+// Immediate Command: 'od_ledi,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,_!"
+// Acknowledgement to Run: "od_leda,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,_!"
 
 #include <evolver_si.h>
 #include <Tlc5940.h>
@@ -15,21 +19,28 @@ boolean serialAvailable = true;  // if serial port is ok to write on
 int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_pin = A0;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
-String comma = ",";
-String end_mark = "end";
 int active_vial = 0;
-int times_averaged = 1000;
+int PDtimes_averaged = 1000;
 int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
 int Input[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
-// Evolver Inputs
-int expected_inputs = 2;
-String photodiode_address = "we";
-// Photodiode Measurements
-evolver_si in("we", " !", expected_inputs); //3rd Input is same as expected_inputs
+//General Serial Communication
+String comma = ",";
+String end_mark = "end";
+
+// Photodiode Serial Communication
+int expected_PDinputs = 2;
+String photodiode_address = "od_90";
+evolver_si in("od_90", "_!", expected_PDinputs); //2 CSV Inputs from RPI
+boolean new_PDinput = false;
+int saved_PDaveraged = 1000; // saved input from Serial Comm.
+
+
 // LED Settings
-String led_address = "ld";
-evolver_si led("ld", " !", num_vials+1); //3rd Input is same as expected_inputs
+String led_address = "od_led";
+evolver_si led("od_led", "_!", num_vials+1); // 17 CSV-inputs from RPI
+boolean new_LEDinput = false;
+int saved_LEDinputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
 
 
@@ -74,32 +85,51 @@ void loop() {
     in.analyzeAndCheck(inputString);
     led.analyzeAndCheck(inputString);
 
+    // Photodiode Logic
     if (in.addressFound) {
-      times_averaged = in.input_array[1].toInt();
-      
-      if (in.input_array[0] == "c") {
-        SerialUSB.println("Echoing PD command!");
-        echoPhotodiode();
-      }
-      else if (in.input_array[0] == "b") {
-        SerialUSB.println("Outputting PD Data for Broadcast!");
+      if (in.input_array[0] == "i" || in.input_array[0] == "r") {
+        
+        SerialUSB.println("Saving PD Setting");
+        saved_PDaveraged = in.input_array[1].toInt();
+        
+        SerialUSB.println("Echoing New PD Command");
+        new_PDinput = true;
         dataResponse();
-      }
 
+        SerialUSB.println("Waiting for OK to execute...");
+      }
+      if (in.input_array[0] == "a" && new_PDinput) {
+        PDtimes_averaged = saved_PDaveraged;
+        SerialUSB.println("PD Command Executed!");
+        new_PDinput = false;
+      }        
+      
       in.addressFound = false;
       inputString = "";
     }
-
+    
+    // LED Logic
     if (led.addressFound) {
-      for (int i = 1; i < num_vials+1; i++) {
-        Tlc.set(LEFT_PWM, i, 4095 - led.input_array[i].toInt());
-      }
-      while(Tlc.update());
-      
-      if (led.input_array[0] == "c") {
-        SerialUSB.println("Echoing LED command!");
+      if (led.input_array[0] == "i" || led.input_array[0] == "r") {
+        SerialUSB.println("Saving LED Setpoints");
+        for (int n = 1; n < num_vials+1; n++) {
+          saved_LEDinputs[n-1] = led.input_array[n].toInt();
+        }
+        
+        SerialUSB.println("Echoing New LED Command");
+        new_LEDinput = true;
         echoLED();
+        
+        SerialUSB.println("Waiting for OK to execute...");
       }
+      if (led.input_array[0] == "a" && new_LEDinput) {
+        update_LEDvalues();
+        SerialUSB.println("Command Executed!");
+        new_LEDinput = false;       
+        
+      }
+
+
       led.addressFound = false;
       inputString = "";
     }
@@ -127,23 +157,6 @@ void serialEvent(int time_wait) {
   }
 }
 
-void echoPhotodiode() {
-  digitalWrite(12, HIGH);
-  
-  String outputString = photodiode_address + "e,";
-  for (int n = 1; n < expected_inputs; n++) {
-    outputString += in.input_array[n];
-    outputString += comma;
-  }
-  outputString += end_mark;
-  if (serialAvailable) {
-    SerialUSB.println(outputString);
-    Serial1.println(outputString);
-  }
-  
-  digitalWrite(12, LOW);
-}
-
 void echoLED() {
   digitalWrite(12, HIGH);
   
@@ -161,10 +174,17 @@ void echoLED() {
   digitalWrite(12, LOW);
 }
 
+void update_LEDvalues() {
+  for (int i = 0; i < num_vials; i++) {
+    Tlc.set(LEFT_PWM, i, 4095 - saved_LEDinputs[i]);
+  }
+  while(Tlc.update());
+}
+
 
 int dataResponse (){
   digitalWrite(12, HIGH);
-  String outputString = photodiode_address + "d,";
+  String outputString = photodiode_address + "b,"; // b is a broadcast tag
   for (int n = 0; n < num_vials; n++) {
     outputString += output[n];
     outputString += comma;
@@ -180,7 +200,7 @@ int dataResponse (){
 void read_MuxShield() {
   unsigned long mux_total=0;
   
-  for (int h=0; h<(times_averaged); h++){
+  for (int h=0; h<(PDtimes_averaged); h++){
     mux_total = mux_total + readMux(active_vial);
     serialEvent(1);
     if (stringComplete){
@@ -190,7 +210,7 @@ void read_MuxShield() {
     }
   }
   if (!stringComplete){
-    output[active_vial] = mux_total / times_averaged;
+    output[active_vial] = mux_total / PDtimes_averaged;
     SerialUSB.println(output[active_vial]);
     if (active_vial == 15){
       active_vial = 0;

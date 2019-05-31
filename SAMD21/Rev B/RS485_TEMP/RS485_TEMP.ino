@@ -1,5 +1,8 @@
-// Command: "xrc,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
-// Broadcast: "xrb,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095, !"
+// Recurring Command: "tempr,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,_!"
+// Immediate Command: "tempi,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,_!"
+// Acknowledgement to Run: "tempa,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,_!"
+
+
 
 #include <evolver_si.h>
 #include <Tlc5940.h>
@@ -8,20 +11,18 @@
 // Serial Event Variables
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
-boolean serialAvailable = true;  // if serial port is ok to write on
 
 // Mux Control Pins
 int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_PIN = 0;
-int num_vials = 16;
 
-// Mux Shield Values
+// Serial Communication Variables
 String comma = ",";
-String output_string = "";
 String end_mark = "end";
-
-// Input Control
-String address = "xr";
-evolver_si in("xr", " !", num_vials+1);
+String address = "temp";
+int num_vials = 16;
+evolver_si in("temp", "_!", num_vials+1); // 17 CSV-inputs from RPI
+boolean new_input = false;
+int saved_inputs[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
 
 // PID Settings
 double Setpoint[] = {4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095,4095};
@@ -86,23 +87,33 @@ void loop() {
     in.analyzeAndCheck(inputString);
 
     if (in.addressFound) {
-      if (in.input_array[0] == "c") {
-        SerialUSB.println("Echoing temperature command!");
-        echoCommand();
-      }
-      else if (in.input_array[0] == "b") {
-        SerialUSB.println("Outputting Temp Data for Broadcast!");
+      if (in.input_array[0] == "i" || in.input_array[0] == "r") {
+        
+        SerialUSB.println("Saving Setpoints");
+        for (int n = 1; n < num_vials+1; n++) {
+          saved_inputs[n-1] = in.input_array[n].toInt();
+        }
+        
+        SerialUSB.println("Responding with Data...");
+        new_input = true;
         dataResponse();
+        
+        SerialUSB.println("Waiting for OK to execute...");
       }
-      
+
+      if (in.input_array[0] == "a" && new_input) {
+        update_values();
+        SerialUSB.println("Command Executed!");
+        new_input = false;
+      }
+
+      inputString = "";
       in.addressFound = false;
     }
-    inputString = "";
+    stringComplete = false;
   }
   // Update PID every loop for better temp control
   read_MuxShield();
-  // clear the string:
-  stringComplete = false;
 }
 
 void serialEvent() {
@@ -116,41 +127,23 @@ void serialEvent() {
 
 }
 
-void echoCommand() {
-  digitalWrite(12, HIGH);
-  
-  String outputString = address + "e,";
-  for (int n = 0; n < num_vials; n++) {
-    outputString += in.input_array[n+1];
-    outputString += comma;
-    if (in.input_array[n+1] != "NaN") {
-      Setpoint[n] = (double)in.input_array[n+1].toFloat();
-    }
-  }
-  outputString += end_mark;
-  if (serialAvailable) {
-    SerialUSB.println(outputString);
-    Serial1.println(outputString);
-  }
-  
-  digitalWrite(12, LOW);
-}
 
 void dataResponse() {
   digitalWrite(12, HIGH);
-  String outputString = address + "d,";
+  String outputString = address + "b,"; // b is a broadcast tag
   for (int i = 0; i < num_vials; i = i + 1) {
-    if (in.input_array[i+1] != "NaN") {
-      Setpoint[i] = (double)in.input_array[i+1].toFloat();
-    }
     outputString += String((int)Input[i]) + comma;
   }
   outputString += end_mark;
-  if (serialAvailable) {
-    Serial1.println(outputString);
-    SerialUSB.println(outputString);
-  }
+  Serial1.println(outputString);
+  SerialUSB.println(outputString);
   digitalWrite(12, LOW);
+}
+
+void update_values() {
+  for (int i = 0; i < num_vials; i = i + 1) {
+    Setpoint[i] = (double)saved_inputs[i];
+  }
 }
 
 void read_MuxShield() {

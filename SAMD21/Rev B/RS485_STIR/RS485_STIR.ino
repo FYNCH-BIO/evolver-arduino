@@ -1,4 +1,6 @@
-// Command: "zvc,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8, !"
+// Recurring Command: "stirr,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,_!"
+// Immediate Command: "stiri,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,_!"
+// Acknowledgement to Run: "stira,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,_!"
 
 #include <evolver_si.h>
 #include <Tlc5940.h>
@@ -7,11 +9,14 @@
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;
 
+// Serial Communication Variables
 String comma = ",";
 String end_mark = "end";
 int num_vials = 16;
-String address = "zv";
-evolver_si in("zv"," !", num_vials+1);
+String address = "stir";
+evolver_si in("stir","_!", num_vials+1); // 17 CSV-inputs from RPI
+boolean new_input = false;
+int saved_inputs[] = {8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8};
 
 int Input[] = {8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8};
 
@@ -36,11 +41,25 @@ void loop() {
     in.analyzeAndCheck(inputString);
     
     if(in.addressFound){
-      if (in.input_array[0] == "c") {
-        SerialUSB.println("Echoing Stir Command");
+      if (in.input_array[0] == "i" || in.input_array[0] == "r") {
+
+        SerialUSB.println("Saving Setpoints");
+        for (int n = 1; n < num_vials+1; n++) {
+          saved_inputs[n-1] = in.input_array[n].toInt();
+        }
+        
+        SerialUSB.println("Echoing New Stir Command");
+        new_input = true;
         echoCommand();
+        
+        SerialUSB.println("Waiting for OK to execute...");
       }
-      update_values();
+
+      if (in.input_array[0] == "a" && new_input) {
+        update_values();
+        SerialUSB.println("Command Executed!");
+        new_input = false;
+      }
       inputString = "";
     }
     
@@ -54,8 +73,8 @@ void echoCommand() {
   digitalWrite(12, HIGH);
   
   String outputString = address + "e,";
-  for (int n = 1; n < num_vials+1; n++) {
-    outputString += in.input_array[n];
+  for (int n = 0; n < num_vials; n++) {
+    outputString += saved_inputs[n];
     outputString += comma;
   }
   outputString += end_mark;
@@ -68,9 +87,7 @@ void echoCommand() {
 
 void update_values() {
   for (int i = 0; i < num_vials; i++) {
-    if (in.input_array[i+1] != "NaN") {
-      Input[i] =  in.input_array[i+1].toInt();
-    }
+     Input[i] =  saved_inputs[i];
   }
 }
 

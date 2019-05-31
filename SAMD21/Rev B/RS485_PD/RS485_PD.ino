@@ -1,5 +1,6 @@
-// Example Command: 'sxc,1000, !'
-// Example Broadcast: 'sxb,1000, !'
+// Recurring Command: 'od_135r,1000,_!'
+// Immediate Command: 'od_135i,1000,_!'
+// Acknowledgement to Run: 'od_135a,1000,_!'
 
 
 #include <evolver_si.h>
@@ -12,16 +13,18 @@ boolean stringComplete = false;  // whether the string is complete
 int s0 = 2, s1 = 3, s2 = 4, s3 = 5, SIG_pin = A1;
 int num_vials = 16;
 int mux_readings[16]; // The size Assumes number of vials
-String comma = ",";
-String end_mark = "end";
 int active_vial = 0;
-int times_averaged = 1000;
+int PDtimes_averaged = 1000;
 int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,60000};
 
 // Evolver Inputs
-int expected_inputs = 2;
-String address = "sx";
-evolver_si in("sx", " !", expected_inputs);
+String comma = ",";
+String end_mark = "end";
+int expected_PDinputs = 2;
+String photodiode_address = "od_135";
+evolver_si in("od_135", "_!", expected_PDinputs);//2 CSV Inputs from RPI
+boolean new_PDinput = false;
+int saved_PDaveraged = 1000; // saved input from Serial Comm.
 
 void setup() {
   pinMode(12, OUTPUT);
@@ -56,18 +59,25 @@ void loop() {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
 
+    // Photodiode Logic
     if (in.addressFound) {
-      times_averaged = in.input_array[1].toInt();
-      
-      if (in.input_array[0] == "c") {
-        SerialUSB.println("Echoing command!");
-        echoCommand();
-      }
-      else if (in.input_array[0] == "b") {
-        SerialUSB.println("Outputting Data for Broadcast!");
+      if (in.input_array[0] == "i" || in.input_array[0] == "r") {
+        
+        SerialUSB.println("Saving PD Setting");
+        saved_PDaveraged = in.input_array[1].toInt();
+        
+        SerialUSB.println("Echoing New PD Command");
+        new_PDinput = true;
         dataResponse();
-      }
 
+        SerialUSB.println("Waiting for OK to execute...");
+      }
+      if (in.input_array[0] == "a" && new_PDinput) {
+        PDtimes_averaged = saved_PDaveraged;
+        SerialUSB.println("PD Command Executed!");
+        new_PDinput = false;
+      }        
+      
       in.addressFound = false;
       inputString = "";
     }
@@ -95,24 +105,9 @@ void serialEvent(int time_wait) {
   }
 }
 
-void echoCommand() {
-  digitalWrite(12, HIGH);
-  
-  String outputString = address + "e,";
-  for (int n = 1; n < expected_inputs; n++) {
-    outputString += in.input_array[n];
-    outputString += comma;
-  }
-  outputString += end_mark;
-  SerialUSB.println(outputString);
-  Serial1.println(outputString);
-  
-  digitalWrite(12, LOW);
-}
-
 int dataResponse (){
   digitalWrite(12, HIGH);
-  String outputString = address + "d,";
+  String outputString = photodiode_address + "b,"; // b is a broadcast tag
   for (int n = 0; n < num_vials; n++) {
     outputString += output[n];
     outputString += comma;
@@ -126,7 +121,7 @@ int dataResponse (){
 void read_MuxShield() {
   unsigned long mux_total=0;
   
-  for (int h=0; h<(times_averaged); h++){
+  for (int h=0; h<(PDtimes_averaged); h++){
     mux_total = mux_total + readMux(active_vial);
     serialEvent(1);
     if (stringComplete){
@@ -136,7 +131,7 @@ void read_MuxShield() {
     }
   }
   if (!stringComplete){
-    output[active_vial] = mux_total / times_averaged;
+    output[active_vial] = mux_total / PDtimes_averaged;
     SerialUSB.println(output[active_vial]);
     if (active_vial == 15){
       active_vial = 0;
@@ -145,6 +140,7 @@ void read_MuxShield() {
     }
   }
 }
+
 
 int readMux(int channel){
   int controlPin[] = {s0, s1, s2, s3};
