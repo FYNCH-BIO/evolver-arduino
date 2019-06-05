@@ -29,6 +29,7 @@ void setup()
   // reserve 200 bytes for the inputString:
   inputString.reserve(1000);
   while (!Serial1);
+  pinMode(12, OUTPUT);
   digitalWrite(12, LOW);
   
 }
@@ -60,9 +61,9 @@ void loop() {
         SerialUSB.println("Command Executed!");
         new_input = false;
       }
+
       inputString = "";
     }
-    
     stringComplete = false;
     in.addressFound = false;
   }
