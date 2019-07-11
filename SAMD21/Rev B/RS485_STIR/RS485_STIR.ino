@@ -27,19 +27,21 @@ void setup()
   SerialUSB.begin(9600);
   Serial1.begin(9600);
   // reserve 200 bytes for the inputString:
-  inputString.reserve(1000);
-  while (!Serial1);
+  inputString.reserve(2000);
   pinMode(12, OUTPUT);
   digitalWrite(12, LOW);
-  
+  while (!Serial1);
 }
 
 
 void loop() {
-  serialEvent(1);
+  serialEvent();
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
+
+    // Clear input string up to first "!", avoid accumulation of previous messages
+    inputString = "";
     
     if(in.addressFound){
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
@@ -61,7 +63,6 @@ void loop() {
         SerialUSB.println("Command Executed!");
         new_input = false;
       }
-
       inputString = "";
     }
     stringComplete = false;
@@ -103,7 +104,6 @@ void exec_stir()
   //Serial.println();
   
     while(Tlc.update());
-    serialEvent(12);
     
    // 10 settings for the stir rate
    for (int n = 0; n < 98; n++) { 
@@ -114,22 +114,16 @@ void exec_stir()
       }
     }
     while(Tlc.update());
-    serialEvent(1);
    }
-
-   serialEvent(70);
 }
 
-void serialEvent(int time_wait) {
-  for (int n=0; n<time_wait; n++) {
-      while (Serial1.available()) {
-        char inChar = (char)Serial1.read();
-        inputString += inChar;
-        if (inChar == '!') {
-          stringComplete = true;
-        }
-      }
-    delay(1);
+void serialEvent() {
+  while (Serial1.available()) {
+    char inChar = (char)Serial1.read();
+    inputString += inChar;
+    if (inChar == '!') {
+      stringComplete = true;
+      break;
+    }
   }
-  
 }

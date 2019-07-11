@@ -46,8 +46,8 @@ void setup() {
   analogReadResolution(16);
   Serial1.begin(9600);
   SerialUSB.begin(9600);
-  // reserve 1000 bytes for the inputString:
-  inputString.reserve(1000);
+  // reserve 2000 bytes for the inputString:
+  inputString.reserve(2000);
   while (!Serial1);
 }
 
@@ -58,6 +58,9 @@ void loop() {
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
+
+    // Clear input string, avoid accumulation of previous messages
+    inputString = "";
 
     // Photodiode Logic
     if (in.addressFound) {
@@ -82,8 +85,9 @@ void loop() {
       inputString = "";
     }
     
-    //Clears strings if too long
-    if (inputString.length() >900){
+    // Clears strings if too long
+    // Should be checked server-side to avoid malfunctioning
+    if (inputString.length() > 2000){
       SerialUSB.println("Cleared Input String");
       inputString = "";
     }
@@ -93,15 +97,14 @@ void loop() {
   stringComplete = false;
 }
 
-void serialEvent(int time_wait) {
-  for (int n=0; n<time_wait; n++) {
-      while (Serial1.available()) {
-        char inChar = (char)Serial1.read();
-        inputString += inChar;
-        if (inChar == '!') {
-          stringComplete = true;
-        }
-      }
+void serialEvent() {
+  while (Serial1.available()) {
+    char inChar = (char)Serial1.read();
+    inputString += inChar;
+    if (inChar == '!') {
+      stringComplete = true;
+      break;
+    }
   }
 }
 
@@ -123,7 +126,7 @@ void read_MuxShield() {
   
   for (int h=0; h<(PDtimes_averaged); h++){
     mux_total = mux_total + readMux(active_vial);
-    serialEvent(1);
+    serialEvent();
     if (stringComplete){
       SerialUSB.println("String Completed, stop averaging");
       SerialUSB.println(h);
