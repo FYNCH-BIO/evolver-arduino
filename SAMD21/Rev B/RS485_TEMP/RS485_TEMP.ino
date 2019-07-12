@@ -69,8 +69,8 @@ void setup() {
   // initialize serial:
   Serial1.begin(9600);
   SerialUSB.begin(9600);
-  // reserve 1000 bytes for the inputString:
-  inputString.reserve(1000);
+  // reserve 2000 bytes for the inputString:
+  inputString.reserve(2000);
 
   while (!Serial1);
 
@@ -86,6 +86,9 @@ void loop() {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
 
+    // Clear input string, avoid accumulation of previous messages
+    inputString = "";
+
     if (in.addressFound) {
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
         
@@ -97,7 +100,6 @@ void loop() {
         SerialUSB.println("Responding with Data...");
         new_input = true;
         dataResponse();
-        
         SerialUSB.println("Waiting for OK to execute...");
       }
 
@@ -107,9 +109,9 @@ void loop() {
         new_input = false;
       }
 
-      inputString = "";
-      in.addressFound = false;
+    inputString = "";
     }
+    in.addressFound = false;
     stringComplete = false;
   }
   // Update PID every loop for better temp control
@@ -117,14 +119,14 @@ void loop() {
 }
 
 void serialEvent() {
-    while (Serial1.available()) {
-      char inChar = (char)Serial1.read();
-      inputString += inChar;
-      if (inChar == '!') {
-        stringComplete = true;
-      }
+  while (Serial1.available()) {
+    char inChar = (char)Serial1.read();
+    inputString += inChar;
+    if (inChar == '!') {
+      stringComplete = true;
+      break;
     }
-
+  }
 }
 
 
