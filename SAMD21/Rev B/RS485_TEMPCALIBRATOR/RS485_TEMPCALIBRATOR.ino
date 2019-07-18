@@ -101,7 +101,7 @@ void loop() {
       if (in.input_array[0] == "sf") {
         serialAvailable = false;
       }
-      in.addressFound = false;*/
+      in.addressFound = false;
     }
     inputString = "";
   }
