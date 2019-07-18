@@ -78,7 +78,7 @@ void loop() {
     if (in.addressFound && (in.input_array[0] == "i" || in.input_array[0] == "r")) {
       SerialUSB.println("Starting");
       print_thermometer_readings();
-      /*
+      
       if (in.input_array[1].length() >= 2) {//calibration settings: cr = 'calibration read' and cs is 'calibration set'
         String action  = in.input_array[1];
         if (action == "cr") { //'cr'
@@ -86,12 +86,12 @@ void loop() {
           print_calibration_coefficients();
         }
         if (action == "csetm") { //calibration set "m" coefficients (slope)
-          in.input_array[1].remove(0,2); //chop off the 'cs' from the beginning of the string
+          in.input_array[1]; //chop off the 'cs' from the beginning of the string
           SerialUSB.println("please no");
           set_calibration_coefficients_m();
         }
         if (action == "csetb") { //'calibration set "m" coefficients (slope)
-          in.input_array[1].remove(0,2); //chop off the 'cs' from the beginning of the string
+          in.input_array[1]; //chop off the 'cs' from the beginning of the string
           SerialUSB.println("please no");
           set_calibration_coefficients_b();
         }
@@ -150,7 +150,14 @@ void serialEvent() {
         stringComplete = true;
       }
     }
-
+    //allow debug input
+    while (SerialUSB.available()) {
+      char inChar = (char)SerialUSB.read();
+      inputString += inChar;
+      if (inChar == '!') {
+        stringComplete = true;
+      }
+    }
 }
 
 
@@ -174,17 +181,29 @@ void read_MuxShield() {
 }
 
 
+
 void print_thermometer_readings(){
   digitalWrite(12, HIGH);
-  String outputString = address + "b,"; //b for broadcast
-  
-  for (int i = 0; i < num_vials; i+=1) {
-    outputString += String((int)TemperatureReadings[i]) + comma;
-  }
-  outputString += end_mark;
-  Serial1.println(outputString);
   SerialUSB.println("thermoreading");
-  SerialUSB.println(outputString);
+
+  String intro = address + "b,";//b for broadcast
+  
+  Serial1.print(intro);
+  SerialUSB.print(intro); 
+
+  for (int i = 0; i < 16; i = i + 1) {
+
+   String tempreading = String(TemperatureReadings[i]) + comma;
+   SerialUSB.print(i);
+   
+   Serial1.print(tempreading);
+   SerialUSB.print(tempreading);
+
+  }
+
+  
+  Serial1.print(end_mark);
+  SerialUSB.print(end_mark);
   digitalWrite(12, LOW);
 }
 
