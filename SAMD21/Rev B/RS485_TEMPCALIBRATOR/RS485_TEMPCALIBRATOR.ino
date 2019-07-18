@@ -59,7 +59,15 @@ void setup() {
   // reserve 1000 bytes for the inputString:
   inputString.reserve(1000);
 
-  while (!Serial1);
+  
+    SerialUSB.println("Beginning");
+    delay(1000);
+
+  while (!Serial1){
+
+    
+    SerialUSB.println("Beginning");
+  }
 }
 
 void loop() {
