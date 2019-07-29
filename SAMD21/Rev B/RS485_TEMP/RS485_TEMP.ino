@@ -137,8 +137,10 @@ void dataResponse() {
     outputString += String((int)Input[i]) + comma;
   }
   outputString += end_mark;
-  Serial1.println(outputString);
+  delay(10); // important to make sure pin 12 flips appropriately
   SerialUSB.println(outputString);
+  Serial1.print(outputString); // issues w/ println on Serial 1 being read into Raspberry Pi
+  delay(10); // important to make sure pin 12 flips appropriately
   digitalWrite(12, LOW);
 }
 

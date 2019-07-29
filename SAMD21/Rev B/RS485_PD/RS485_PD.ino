@@ -46,8 +46,8 @@ void setup() {
   analogReadResolution(16);
   Serial1.begin(9600);
   SerialUSB.begin(9600);
-  // reserve 2000 bytes for the inputString:
-  inputString.reserve(2000);
+  // reserve 1000 bytes for the inputString:
+  inputString.reserve(1000);
   while (!Serial1);
 }
 
@@ -58,9 +58,6 @@ void loop() {
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
-
-    // Clear input string, avoid accumulation of previous messages
-    inputString = "";
 
     // Photodiode Logic
     if (in.addressFound) {
@@ -85,9 +82,8 @@ void loop() {
       inputString = "";
     }
     
-    // Clears strings if too long
-    // Should be checked server-side to avoid malfunctioning
-    if (inputString.length() > 2000){
+    //Clears strings if too long
+    if (inputString.length() >900){
       SerialUSB.println("Cleared Input String");
       inputString = "";
     }
@@ -97,14 +93,15 @@ void loop() {
   stringComplete = false;
 }
 
-void serialEvent() {
-  while (Serial1.available()) {
-    char inChar = (char)Serial1.read();
-    inputString += inChar;
-    if (inChar == '!') {
-      stringComplete = true;
-      break;
-    }
+void serialEvent(int time_wait) {
+  for (int n=0; n<time_wait; n++) {
+      while (Serial1.available()) {
+        char inChar = (char)Serial1.read();
+        inputString += inChar;
+        if (inChar == '!') {
+          stringComplete = true;
+        }
+      }
   }
 }
 
@@ -116,8 +113,14 @@ int dataResponse (){
     outputString += comma;
   }
   outputString += end_mark;
+  
+  delay(10); // important to make sure pin 12 flips appropriately
+  
   SerialUSB.println(outputString);
-  Serial1.println(outputString);
+  Serial1.print(outputString); // issues w/ println on Serial 1 being read into Raspberry Pi
+
+  delay(10); // important to make sure pin 12 flips appropriately
+  
   digitalWrite(12, LOW);
 }
 
@@ -126,7 +129,7 @@ void read_MuxShield() {
   
   for (int h=0; h<(PDtimes_averaged); h++){
     mux_total = mux_total + readMux(active_vial);
-    serialEvent();
+    serialEvent(1);
     if (stringComplete){
       SerialUSB.println("String Completed, stop averaging");
       SerialUSB.println(h);
