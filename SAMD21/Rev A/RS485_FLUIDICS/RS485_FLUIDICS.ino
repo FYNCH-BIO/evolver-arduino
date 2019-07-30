@@ -202,7 +202,7 @@ void loop() {
   Tlc.update();
 
   //Clears strings if too long
-  if (inputString.length() >900){
+  if (inputString.length() >1900){
     SerialUSB.println("Cleared Input String");
     inputString = "";
   }
