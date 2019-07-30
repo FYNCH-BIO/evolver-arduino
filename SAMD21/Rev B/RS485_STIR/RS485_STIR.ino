@@ -27,7 +27,7 @@ void setup()
   SerialUSB.begin(9600);
   Serial1.begin(9600);
   // reserve 200 bytes for the inputString:
-  inputString.reserve(2000);
+  inputString.reserve(1000);
   while (!Serial1);
   pinMode(12, OUTPUT);
   digitalWrite(12, LOW);
@@ -63,7 +63,15 @@ void loop() {
       }
 
       inputString = "";
+
     }
+    
+    //Clears strings if too long
+    if (inputString.length() > 900){
+      SerialUSB.println("Cleared Input String");
+      inputString = "";
+    }
+    
     stringComplete = false;
     in.addressFound = false;
   }

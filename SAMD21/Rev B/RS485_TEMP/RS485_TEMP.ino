@@ -111,6 +111,14 @@ void loop() {
 
     inputString = "";
     }
+
+    //Clears strings if too long
+    if (inputString.length() > 900){
+      SerialUSB.println("Cleared Input String");
+      inputString = "";
+    }
+
+    
     in.addressFound = false;
     stringComplete = false;
   }
