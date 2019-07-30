@@ -34,8 +34,15 @@ void evolver_si::analyzeAndCheck(String inputString){
 	int end_indx = inputString.lastIndexOf(_end_Address);
 	if (start_indx != -1 && end_indx != -1){
 
-		// Figure out
+		// Figure out string segment with correct header
 		inputString = inputString.substring(start_indx,end_indx+sizeof(_end_Address));
+
+		// Deal with edge case where there might be an additional end index from serial queue
+		start_indx = inputString.indexOf(_start_Address);
+		end_indx  = inputString.indexOf(_end_Address);
+		inputString = inputString.substring(start_indx,end_indx+sizeof(_end_Address));
+
+		//properly annotate the indices again
 	 	start_indx = inputString.lastIndexOf(_start_Address);
 	 	end_indx = inputString.lastIndexOf(_end_Address);
 
