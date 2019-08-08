@@ -129,8 +129,14 @@ void echoCommand() {
     outputString += comma;
   }
   outputString += end_mark;
+
+  delay(100); // important to make sure pin 12 flips appropriately
+
   SerialUSB.println(outputString);
-  Serial1.println(outputString);
+  Serial1.print(outputString);
+
+  delay(100); // important to make sure pin 12 flips appropriately
+
   
   digitalWrite(12, LOW);
 }

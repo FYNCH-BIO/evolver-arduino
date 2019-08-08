@@ -169,12 +169,12 @@ void echoLED() {
     outputString += comma;
   }
   outputString += end_mark;
-  delay(50);
+  delay(100);
   if (serialAvailable) {
     SerialUSB.println(outputString);
     Serial1.print(outputString);
   }  
-  delay(50);
+  delay(100);
   digitalWrite(12, LOW);
 }
 
@@ -195,12 +195,12 @@ int dataResponse (){
   }
   outputString += end_mark;
 
-  delay(10); // important to make sure pin 12 flips appropriately
+  delay(100); // important to make sure pin 12 flips appropriately
   
   SerialUSB.println(outputString);
   Serial1.print(outputString); // issues w/ println on Serial 1 being read into Raspberry Pi
 
-  delay(10); // important to make sure pin 12 flips appropriately
+  delay(100); // important to make sure pin 12 flips appropriately
 
   digitalWrite(12, LOW);
 }
