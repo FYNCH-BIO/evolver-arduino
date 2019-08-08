@@ -169,12 +169,12 @@ void echoLED() {
     outputString += comma;
   }
   outputString += end_mark;
-  delay(10);
+  delay(50);
   if (serialAvailable) {
     SerialUSB.println(outputString);
     Serial1.print(outputString);
   }  
-  delay(10);
+  delay(50);
   digitalWrite(12, LOW);
 }
 
