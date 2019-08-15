@@ -31,7 +31,7 @@ void setup()
   while (!Serial1);
   pinMode(12, OUTPUT);
   digitalWrite(12, LOW);
-  
+
 }
 
 
@@ -40,7 +40,7 @@ void loop() {
   if (stringComplete) {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
-    
+
     if(in.addressFound){
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
 
@@ -48,11 +48,11 @@ void loop() {
         for (int n = 1; n < num_vials+1; n++) {
           saved_inputs[n-1] = in.input_array[n].toInt();
         }
-        
+
         SerialUSB.println("Echoing New Stir Command");
         new_input = true;
         echoCommand();
-        
+
         SerialUSB.println("Waiting for OK to execute...");
       }
 
@@ -65,13 +65,13 @@ void loop() {
       inputString = "";
 
     }
-    
+
     //Clears strings if too long
     if (inputString.length() > 900){
       SerialUSB.println("Cleared Input String");
       inputString = "";
     }
-    
+
     stringComplete = false;
     in.addressFound = false;
   }
@@ -80,18 +80,17 @@ void loop() {
 
 void echoCommand() {
   digitalWrite(12, HIGH);
-  
+
   String outputString = address + "e,";
   for (int n = 0; n < num_vials; n++) {
     outputString += saved_inputs[n];
     outputString += comma;
   }
   outputString += end_mark;
-  delay(100); // important to make sure pin 12 flips appropriately
   SerialUSB.println(outputString);
   Serial1.print(outputString); // issues w/ println on Serial 1 being read into Raspberry Pi
-  delay(100); // important to make sure pin 12 flips appropriately
-  
+  delay(300); // important to make sure pin 12 flips appropriately
+
   digitalWrite(12, LOW);
 }
 
@@ -111,12 +110,12 @@ void exec_stir()
     }
   }
   //Serial.println();
-  
+
     while(Tlc.update());
     serialEvent(12);
-    
+
    // 10 settings for the stir rate
-   for (int n = 0; n < 98; n++) { 
+   for (int n = 0; n < 98; n++) {
     for (int i = 0; i < num_vials; i++) {
 
       if (Input[i] == n) {
@@ -141,5 +140,5 @@ void serialEvent(int time_wait) {
       }
     delay(1);
   }
-  
+
 }
