@@ -1,6 +1,5 @@
 /// INSTANT COMMAND: pumpi,2|4,10,--,--,--,--,--,--,--,--,--,--,--,--,--,--,3|4,15,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,_!
-/// RECURRING COMMAND: pumpr,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,3|4,_!
-/// TURN ON ALL PUMPS (30s): pumpr,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,_!
+/// RECURRING COMMAND: pumpr,2|4,10,--,--,--,--,--,--,--,--,--,--,--,--,--,--,3|4,15,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,_!
 /// TURN OFF ALL PUMPS WITH: pumpr,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,_!
 /// ACKNOWLEDGMENT TO RUN: pumpa,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,_!
 
@@ -70,6 +69,13 @@ class Pump {
     void turnOff() {
       Tlc.set(LEFT_PWM, addr, speedset[0]);
     }
+
+    bool isNewChemostat(float newTimeToPump, int newPumpInterval){
+      newTimeToPump = newTimeToPump * 1000; // convert to millis
+      newPumpInterval = newPumpInterval * 1000; // conver to millis
+
+      return (newTimeToPump == timeToPump && newPumpInterval == pumpInterval);
+    }
 };
 
 Pump pumps[numPumps];
@@ -92,7 +98,7 @@ void setup() {
   }
 
   // UNCOMMENT HERE FOR NEW PUMP SETTING (RevB)
-//
+
 //  for (int i = 0; i < 6; i++) { //6 pump racks
 //    for (int j = 0; j < 8; j++) { //8 pumps per racks
 //      int pump_indx = 8*i + j;
@@ -109,6 +115,7 @@ void serialEvent() {
     inputString += inChar;
     if (inChar == '!') {
       stringComplete = true;
+      break;
     }
   }
 }
@@ -139,6 +146,9 @@ void loop() {
     SerialUSB.println(inputString);
     in.analyzeAndCheck(inputString);
 
+    // Clear input string, avoid accumulation of previous messages
+    inputString = "";
+
     if (in.addressFound) {
       if (in.input_array[0] == "i" || in.input_array[0] == "r") {
          
@@ -147,7 +157,7 @@ void loop() {
           saved_inputs[n-1] = in.input_array[n];
         }
         
-        SerialUSB.println("Echoing New Stir Command");
+        SerialUSB.println("Echoing New Pump Command");
         new_input = true;
         echoCommand();
         SerialUSB.println("Waiting for OK to execute...");
@@ -166,10 +176,18 @@ void loop() {
               timeToPump = saved_inputs[i].substring(0, split_indx).toDouble();
               pumpInterval = saved_inputs[i].substring(split_indx+1).toInt();
             }
-            SerialUSB.print("Pump :");
-            SerialUSB.println(i);
-            
-            pumps[i].setPump(timeToPump, pumpInterval);
+
+            // If chemostat command, verify that this is a new command
+            if (pumpInterval != 0 &&
+                pumps[i].isNewChemostat(timeToPump, pumpInterval)){
+               SerialUSB.print("Unaltered chemostat: ");
+               SerialUSB.println(i);
+            }
+            else {
+               SerialUSB.print("Pump: ");
+               SerialUSB.println(i);
+               pumps[i].setPump(timeToPump, pumpInterval);
+            }
           }
         }
         
@@ -180,14 +198,6 @@ void loop() {
 
     inputString = "";
     }
-
-    //Clears strings if too long
-    if (inputString.length() > 1900){
-      SerialUSB.println("Cleared Input String");
-      inputString = "";
-    }
-
-    
     // clear the string:
     stringComplete = false;
     in.addressFound = false;
@@ -201,8 +211,9 @@ void loop() {
   // Update the PWM - do not call this more than one time per loop
   Tlc.update();
 
-  //Clears strings if too long
-  if (inputString.length() >1900){
+  // Clears strings if too long
+  // Should be checked server-side to avoid malfunctioning
+  if (inputString.length() > 2000){
     SerialUSB.println("Cleared Input String");
     inputString = "";
   }
