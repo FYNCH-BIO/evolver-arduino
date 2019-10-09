@@ -3,6 +3,13 @@
 /// TURN OFF ALL PUMPS WITH: pumpr,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,_!
 /// ACKNOWLEDGMENT TO RUN: pumpa,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,_!
 
+/// IPP USAGE: pumpi,<Hz>|<Pump number>|<IPP index>,...
+/// To run 2 IPPs on addresses (0,1,2), and (3,4,5):
+/// pumpi,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,10|1|1,10|1|2,10|1|3,5|2|1,5|2|2,5|2|3,--,--,--,--,--,--,--,--,--,--,_!
+/// Then acknowledge like above.
+
+/// To turn off IPP, a command with 0 as Hz to the desired pump number.
+/// pumpi,0|1|1,0|2|1,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,--,_!
 
 #include <evolver_si.h>
 #include <Tlc5940.h>
@@ -18,8 +25,8 @@ String address = "pump";
 String comma = ",";
 String end_mark = "end";
 evolver_si in("pump", "_!", numPumps+1);// 49 CSV-inputs from RPI 
-boolean new_input = false;
-String saved_inputs[48];
+boolean newInput = false;
+String savedInputs[48];
 
 
 class Pump {
@@ -78,7 +85,84 @@ class Pump {
     }
 };
 
+class IPP {
+  int solenoid1;
+  int solenoid2;
+  int solenoid3;
+  int solenoidState = -1;
+  unsigned long previousMillis;
+  long holdTime = -1;
+
+  public:
+  IPP() {}
+  IPP(int _solenoid1, int solenoid2, int solenoid3) {
+    this->solenoid1 = solenoid1;
+    this->solenoid2 = solenoid2;
+    this->solenoid3 = solenoid3;
+  }
+
+  void update(long holdTime) {   
+    SerialUSB.println("Updating holdtime"); 
+    this->holdTime = holdTime;
+    this->update();
+    if (solenoidState = -1) {
+      this->solenoidState = 1; 
+    }    
+  }
+
+  void update() {
+    unsigned long currentMillis = millis();
+    if (holdTime == -1 && solenoid1) {
+      Tlc.set(LEFT_PWM, solenoid1, speedset[0]);
+      Tlc.set(LEFT_PWM, solenoid2, speedset[0]);
+      Tlc.set(LEFT_PWM, solenoid3, speedset[0]);
+    }
+    else {
+      boolean timeExpired = currentMillis - previousMillis >= holdTime;
+      if (solenoidState == 1 && timeExpired) {
+        solenoidState = 2;
+        previousMillis = currentMillis;
+        Tlc.set(LEFT_PWM, solenoid1, speedset[0]);
+        Tlc.set(LEFT_PWM, solenoid2, speedset[1]);
+      }
+      else if (solenoidState == 2 && timeExpired) {
+        solenoidState = 3;
+        previousMillis = currentMillis;
+        Tlc.set(LEFT_PWM, solenoid2, speedset[0]);
+        Tlc.set(LEFT_PWM, solenoid3, speedset[1]);
+      }
+      else if (solenoidState == 3 && timeExpired) {
+        solenoidState = 1;
+        previousMillis = currentMillis;
+        Tlc.set(LEFT_PWM, solenoid3, speedset[0]);
+        Tlc.set(LEFT_PWM, solenoid1, speedset[1]);  
+      }      
+    }
+  }
+
+  void turnOff() {
+    solenoidState = -1;
+    Tlc.set(LEFT_PWM, solenoid1, speedset[0]);
+    Tlc.set(LEFT_PWM, solenoid2, speedset[0]);
+    Tlc.set(LEFT_PWM, solenoid3, speedset[0]);
+    this->update();
+  }
+
+  void setAddress(int address, int solenoidNumber) {
+    if (solenoidNumber == 1) { 
+      solenoid1 = address;
+    }
+    else if (solenoidNumber == 2) {
+      solenoid2 = address;  
+    }
+    else if (solenoidNumber == 3) {
+      solenoid3 = address;  
+    }    
+  }
+};
+
 Pump pumps[numPumps];
+IPP ippPumps[numPumps];
 
 void setup() {
   pinMode(12, OUTPUT);
@@ -101,8 +185,8 @@ void setup() {
 
   for (int i = 0; i < 6; i++) { //6 pump racks
     for (int j = 0; j < 8; j++) { //8 pumps per racks
-      int pump_indx = 8*i + j;
-      pumps[pump_indx].init( 8*i + 7 -j);
+      int pumpIndx = 8*i + j;
+      pumps[pumpIndx].init( 8*i + 7 -j);
     }
   }
 
@@ -157,36 +241,51 @@ void loop() {
          
         SerialUSB.println("Saving Setpoints");
         for (int n = 1; n < numPumps+1; n++) {
-          saved_inputs[n-1] = in.input_array[n];
+          savedInputs[n-1] = in.input_array[n];
         }
         
         SerialUSB.println("Echoing New Pump Command");
-        new_input = true;
+        newInput = true;
         echoCommand();
         SerialUSB.println("Waiting for OK to execute...");
       }
 
  
-      if (in.input_array[0] == "a" && new_input) {
+      if (in.input_array[0] == "a" && newInput) {
         for (int i = 0; i < numPumps; i++) {
-          if (saved_inputs[i] != "--"){
-            int split_indx = saved_inputs[i].indexOf("|");
-            if (split_indx == -1){
-              timeToPump = saved_inputs[i].toDouble();
+          if (savedInputs[i] != "--") {
+            int splitIndx = savedInputs[i].indexOf("|");
+            int ippSplitIndx = savedInputs[i].indexOf("|",splitIndx+1);
+            if (splitIndx == -1) {
+              timeToPump = savedInputs[i].toFloat();
               pumpInterval = 0;
-              
-            } else {
-              timeToPump = saved_inputs[i].substring(0, split_indx).toDouble();
-              pumpInterval = saved_inputs[i].substring(split_indx+1).toInt();
+            } 
+            else if  (ippSplitIndx == -1) {
+              timeToPump = savedInputs[i].substring(0, splitIndx).toFloat();
+              pumpInterval = savedInputs[i].substring(splitIndx+1).toInt();
+            } 
+            else {
+              int pumpNumber = savedInputs[i].substring(splitIndx+1, ippSplitIndx).toInt();
+              int solenoidNumber = savedInputs[i].substring(ippSplitIndx+1).toInt();
+              float hz = savedInputs[i].substring(0, splitIndx).toFloat();
+              int holdTime;
+              if (hz > 0) {
+                holdTime = (1.0 / hz) * 1000;
+                ippPumps[pumpNumber].setAddress(i, solenoidNumber);
+                ippPumps[pumpNumber].update(holdTime);                
+              }
+              else {
+                ippPumps[pumpNumber].turnOff();  
+              }
             }
 
             // If chemostat command, verify that this is a new command
             if (pumpInterval != 0 &&
                 pumps[i].isNewChemostat(timeToPump, pumpInterval)){
                SerialUSB.print("Unaltered chemostat: ");
-               SerialUSB.println(i);
+               SerialUSB.println(i);               
             }
-            else {
+            else if (ippSplitIndx == -1) {
                SerialUSB.print("Pump: ");
                SerialUSB.println(i);
                pumps[i].setPump(timeToPump, pumpInterval);
@@ -195,7 +294,7 @@ void loop() {
         }
         
         SerialUSB.println("Command Executed!");
-        new_input = false;
+        newInput = false;
       }
         
 
@@ -208,7 +307,8 @@ void loop() {
 
   // Update all the pumps
   for (int i = 0; i < numPumps; i++) {
-      pumps[i].update(); 
+      pumps[i].update();
+      ippPumps[i].update();
   }
 
   // Update the PWM - do not call this more than one time per loop
