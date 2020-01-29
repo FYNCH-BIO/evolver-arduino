@@ -67,7 +67,7 @@ int main(void)
         value = readADC(CONFIG_C1);
         itoa(value, buffer, 10);
         sendMessage(buffer);
-        sendMessage("\t");
+        sendMessage("|");
 
         // Read from channel 2 (blank)
         value = readADC(CONFIG_C2);
