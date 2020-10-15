@@ -105,7 +105,7 @@ class IPP {
     SerialUSB.println("Updating holdtime"); 
     this->holdTime = holdTime;
     this->update();
-    if (solenoidState = -1) {
+    if (solenoidState == -1) {
       this->solenoidState = 1; 
     }    
   }
