@@ -60,11 +60,13 @@ volatile uint8_t tlc_needXLAT_2;
 //"booleans" to determine the position of PWM boards
 volatile uint8_t pos_1 = 0;
 volatile uint8_t pos_2 = 0;
+volatile uint8_t isBothPWM = 0;
 
 /** Some of the extened library will need to be called after a successful
     update. */
 volatile void (*tlc_onUpdateFinished_1)(void);
 volatile void (*tlc_onUpdateFinished_2)(void);
+volatile void (*tlc_onUpdateFinished_3)(void);
 
 /** Packed grayscale data, 24 bytes (16 * 12 bits) per TLC.
 
@@ -96,31 +98,41 @@ void TCC1_Handler()
     {
       REG_TCC1_INTFLAG = TCC_INTFLAG_MC0;  //clear TCC1 interrupt
       if(pos_1){
-	BLANK_PORT_1 |= (1 << BLANK_PIN_1); //Bring BLANK high until XLAT pulses
+        BLANK_PORT_1 |= (1 << BLANK_PIN_1); //Bring BLANK high until XLAT pulses
       }
       if(pos_2){
-	BLANK_PORT_2 |= (1 << BLANK_PIN_2); //Bring BLANK high until XLAT pulses
+        BLANK_PORT_2 |= (1 << BLANK_PIN_2); //Bring BLANK high until XLAT pulses
       }
     }
   if (TCC1->INTFLAG.bit.OVF && TCC1->INTENSET.bit.OVF){
-    if(pos_1){
+    if (isBothPWM){
+      BLANK_PORT_1 &=~ (1 << BLANK_PIN_1);  // Bring BLANK low after XLAT pulses
+      BLANK_PORT_2 &=~ (1 << BLANK_PIN_2);  // Bring BLANK low after XLAT pulses
+      disable_XLAT_pulses_3();
+      clear_XLAT_interrupt();
+      tlc_needXLAT_1 = 0;
+      tlc_needXLAT_2 = 0;
+      if (tlc_onUpdateFinished_3) {
+        set_XLAT_interrupt();
+        tlc_onUpdateFinished_3();
+      }
+    }else if (pos_1){
       BLANK_PORT_1 &=~ (1 << BLANK_PIN_1);  // Bring BLANK low after XLAT pulses
       disable_XLAT_pulses_1();
       clear_XLAT_interrupt();
       tlc_needXLAT_1 = 0;
       if (tlc_onUpdateFinished_1) {
-	set_XLAT_interrupt();
-	tlc_onUpdateFinished_1();
+        set_XLAT_interrupt();
+        tlc_onUpdateFinished_1();
       }
-    }
-    if(pos_2){
+    }else if (pos_2){
       BLANK_PORT_2 &=~ (1 << BLANK_PIN_2);  // Bring BLANK low after XLAT pulses
       disable_XLAT_pulses_2();
       clear_XLAT_interrupt();
       tlc_needXLAT_2 = 0;
       if (tlc_onUpdateFinished_2) {
-	set_XLAT_interrupt();
-	tlc_onUpdateFinished_2();
+        set_XLAT_interrupt();
+        tlc_onUpdateFinished_2();
       }
     }
   }
@@ -157,6 +169,9 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
   // set global PWM position values
   pos_1 = pwm_val & 0x1;
   pos_2 = pwm_val & 0x2;
+  if (pos_1 && pos_2){
+    isBothPWM = 1;
+  }  
   
   REG_TCC1_INTENSET |=  TCC_INTENSET_MC0; // set PWM interrupts
 
@@ -201,7 +216,8 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
     disable_XLAT_pulses_1();
     tlc_needXLAT_1 = 0;
     pulse_pin(XLAT_PORT_1, XLAT_PIN_1);
-  }if (pos_2){
+  }  
+  if (pos_2){
     disable_XLAT_pulses_2();
     tlc_needXLAT_2 = 0;
     pulse_pin(XLAT_PORT_2, XLAT_PIN_2);
@@ -224,7 +240,8 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
     disable_XLAT_pulses_1();                 // non inverting, output on TCC1:3, XLAT //arduino pin 3 
     /* Timer 2 - GSCLK */
     enable_GSCLK_1();                        // output on TCC0:4 //arduino pin 2  
-  }if(pos_2){
+  }
+  if(pos_2){
     disable_XLAT_pulses_2();                 // non inverting, output on TCC1:1, XLAT //arduino pin 9
     /* Timer 2 - GSCLK */
     enable_GSCLK_2();                        // output on TCC0:7 //arduino pin 7
@@ -251,10 +268,11 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
   REG_TCC1_CTRLA |= TCC_CTRLA_ENABLE |
     TCC_CTRLA_PRESCALER_DIV1;                // no prescale, (start pwm output)
   while (TCC1->SYNCBUSY.bit.ENABLE);         // Wait for synchronization
-
+  
   if (pos_1){
     enable_XLAT_pulses_1();
-  }if (pos_2){
+  }
+  if (pos_2){
     enable_XLAT_pulses_2();
   }
   update(); //write an update to set all of the channels to their initialized value
@@ -286,10 +304,11 @@ uint8_t Tlc5940::update(void)
   // disable any running XLAT_pulses
   if(pos_1){
     disable_XLAT_pulses_1();
-  }if(pos_2){
+  }
+  if(pos_2){
     disable_XLAT_pulses_2();
   }
-  
+
   if (firstGSInput) {
     // adds an extra SCLK pulse unless we've just set dot-correction data
     firstGSInput = 0;
@@ -298,18 +317,18 @@ uint8_t Tlc5940::update(void)
       pulse_pin(SCLK_PORT_1, SCLK_PIN_1);
       uint8_t *p = tlc_GSData_1;
       while (p < tlc_GSData_1 + NUM_TLCS * 24) {
-	tlc_shift8(1, *p++);
-	tlc_shift8(1, *p++);
-	tlc_shift8(1, *p++);
+  tlc_shift8(1, *p++);
+  tlc_shift8(1, *p++);
+  tlc_shift8(1, *p++);
       }
     }
     if(pos_2){
       pulse_pin(SCLK_PORT_2, SCLK_PIN_2);
       uint8_t *p = tlc_GSData_2;
       while (p < tlc_GSData_2 + NUM_TLCS * 24) {
-	tlc_shift8(2, *p++);
-	tlc_shift8(2, *p++);
-	tlc_shift8(2, *p++);
+  tlc_shift8(2, *p++);
+  tlc_shift8(2, *p++);
+  tlc_shift8(2, *p++);
       }
     }
   }
@@ -401,21 +420,21 @@ uint16_t Tlc5940::get(TLC_CHANNEL_TYPE channel)
     \param value grayscale value (0 - 4095) */
 void Tlc5940::setAll(uint16_t value)
 {
-  if(pos_1){
-    uint8_t firstByte = value >> 4;
-    uint8_t secondByte = (value << 4) | (value >> 8);
-    uint8_t *p = tlc_GSData_1;
-    while (p < tlc_GSData_1 + NUM_TLCS * 24) {
-      *p++ = firstByte;
-      *p++ = secondByte;
-      *p++ = (uint8_t)value;
-    }
-  }
   if(pos_2){
     uint8_t firstByte = value >> 4;
     uint8_t secondByte = (value << 4) | (value >> 8);
     uint8_t *p = tlc_GSData_2;
     while (p < tlc_GSData_2 + NUM_TLCS * 24) {
+      *p++ = firstByte;
+      *p++ = secondByte;
+      *p++ = (uint8_t)value;
+    }
+  }  
+  if(pos_1){
+    uint8_t firstByte = value >> 4;
+    uint8_t secondByte = (value << 4) | (value >> 8);
+    uint8_t *p = tlc_GSData_1;
+    while (p < tlc_GSData_1 + NUM_TLCS * 24) {
       *p++ = firstByte;
       *p++ = secondByte;
       *p++ = (uint8_t)value;
@@ -444,9 +463,9 @@ void tlc_shift8(uint8_t pwm_val, uint8_t byte)
   if(pwm_val & 0x1){
     for (uint8_t bit = 0x80; bit; bit >>= 1) {
       if (bit & byte) {
-	SIN_PORT_1 |= (1 << SIN_PIN_1);  // set SIN high (left PWM)
+  SIN_PORT_1 |= (1 << SIN_PIN_1);  // set SIN high (left PWM)
       } else {
-	SIN_PORT_1 &=~ (1 << SIN_PIN_1); // set SIN low (left PWM)
+  SIN_PORT_1 &=~ (1 << SIN_PIN_1); // set SIN low (left PWM)
       }
       pulse_pin(SCLK_PORT_1, SCLK_PIN_1);
     }
@@ -454,9 +473,9 @@ void tlc_shift8(uint8_t pwm_val, uint8_t byte)
   if(pwm_val & 0x2){
     for (uint8_t bit = 0x80; bit; bit >>= 1) {
       if (bit & byte) {
-	SIN_PORT_2 |= (1 << SIN_PIN_2);  // set SIN high (right PWM)
+  SIN_PORT_2 |= (1 << SIN_PIN_2);  // set SIN high (right PWM)
       } else {
-	SIN_PORT_2 &=~ (1 << SIN_PIN_2); // set SIN low (right PWM)
+  SIN_PORT_2 &=~ (1 << SIN_PIN_2); // set SIN low (right PWM)
       }
       pulse_pin(SCLK_PORT_2, SCLK_PIN_2);
     }
