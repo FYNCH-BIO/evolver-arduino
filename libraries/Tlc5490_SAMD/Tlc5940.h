@@ -87,6 +87,10 @@
 /** Enable the GSCLK */
 #define enable_GSCLK_2() PORT->Group[g_APinDescription[7].ulPort].PINCFG[g_APinDescription[7].ulPin].bit.PMUXEN = 1; PORT->Group[g_APinDescription[6].ulPort].PMUX[g_APinDescription[6].ulPin >> 1].reg = PORT_PMUX_PMUXE_F | PORT_PMUX_PMUXO_F
 
+// When both left and right boards are PWM
+// Disable the output of both LEFT and RIGHT XLAT pulses
+#define disable_XLAT_pulses_3()   PORT->Group[g_APinDescription[3].ulPort].PINCFG[g_APinDescription[3].ulPin].bit.PMUXEN = 0; PORT->Group[g_APinDescription[8].ulPort].PINCFG[g_APinDescription[8].ulPin].bit.PMUXEN = 0; REG_TCC1_CC1 = 0; while (TCC1->SYNCBUSY.bit.CC1) 
+
 
 
 //Global variable definitions
@@ -94,8 +98,10 @@ extern volatile uint8_t tlc_needXLAT_1;
 extern volatile uint8_t tlc_needXLAT_2;
 extern volatile uint8_t pos_1;
 extern volatile uint8_t pos_2;
+extern volatile uint8_t isBothPWM;
 extern volatile void (*tlc_onUpdateFinished_1)(void);
 extern volatile void (*tlc_onUpdateFinished_2)(void);
+extern volatile void (*tlc_onUpdateFinished_3)(void);
 extern uint8_t tlc_GSData_1[NUM_TLCS * 24];
 extern uint8_t tlc_GSData_2[NUM_TLCS * 24];
 
