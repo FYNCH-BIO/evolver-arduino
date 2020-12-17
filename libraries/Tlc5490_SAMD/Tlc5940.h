@@ -79,13 +79,13 @@
 
 //Datasheet page 388
 /** Enables the output of XLAT pulses */
-#define enable_XLAT_pulses_2()      PORT->Group[g_APinDescription[8].ulPort].PINCFG[g_APinDescription[8].ulPin].bit.PMUXEN = 1; PORT->Group[g_APinDescription[8].ulPort].PMUX[g_APinDescription[8].ulPin >> 1].reg = PORT_PMUX_PMUXE_E; REG_TCC1_CC1 = 1; while (TCC1->SYNCBUSY.bit.CC1) //These are a problem
+#define enable_XLAT_pulses_2()      PORT->Group[g_APinDescription[8].ulPort].PINCFG[g_APinDescription[8].ulPin].bit.PMUXEN = 1; PORT->Group[g_APinDescription[9].ulPort].PMUX[g_APinDescription[9].ulPin >> 1].reg = PORT_PMUX_PMUXE_E; REG_TCC1_CC1 = 1; while (TCC1->SYNCBUSY.bit.CC1) //These are a problem
 /** Disables the output of XLAT pulses */
 #define disable_XLAT_pulses_2()   PORT->Group[g_APinDescription[8].ulPort].PINCFG[g_APinDescription[8].ulPin].bit.PMUXEN = 0; REG_TCC1_CC1 = 0; while (TCC1->SYNCBUSY.bit.CC1) 
 
 //Datasheet page 388
 /** Enable the GSCLK */
-#define enable_GSCLK_2() PORT->Group[g_APinDescription[7].ulPort].PINCFG[g_APinDescription[7].ulPin].bit.PMUXEN = 1; PORT->Group[g_APinDescription[6].ulPort].PMUX[g_APinDescription[6].ulPin >> 1].reg = PORT_PMUX_PMUXE_F | PORT_PMUX_PMUXO_F
+#define enable_GSCLK_2() PORT->Group[g_APinDescription[7].ulPort].PINCFG[g_APinDescription[7].ulPin].bit.PMUXEN = 1; PORT->Group[g_APinDescription[7].ulPort].PMUX[g_APinDescription[7].ulPin >> 1].reg = PORT_PMUX_PMUXE_F | PORT_PMUX_PMUXO_F
 
 // When both left and right boards are PWM
 // Disable the output of both LEFT and RIGHT XLAT pulses
