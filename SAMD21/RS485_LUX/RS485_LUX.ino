@@ -12,12 +12,15 @@ int const numVials = 16;
 int muxReadings[numVials]; // The size Assumes number of vials
 int activeVial = 2;
 int savedTimesAveraged = 5;
-int timesAveraged = 5;
+int timesAveraged = 5; // Number of times to average values from one vial before moving on
 int tempControlData = 0;
 int tempSignalData = 0;
 int dataCount = 0;
 unsigned long lastTimeMeasurementsStarted;
 boolean newLuxInput = false;
+int luxVials[] = {4,5,6,7,12,13,14,15};
+const int luxLen = sizeof(luxVials) / sizeof(luxVials[0]); //how many lux vials there are
+int vialCount = 0; // for iterating through only the lux vials
 boolean first = true;
 
 int s0 = 7, s1 = 8, s2 = 9, s3 = A0;
@@ -105,60 +108,69 @@ void loop() {
   // print the string when a newline arrives:
   serialEvent();
   serial2Event();
-
-  // if it takes too long, move on to next vial. Problem with device or not connected.
-  if (abs(millis() - lastTimeMeasurementsStarted) > 4000) {
-    activeVial++;
-    if (activeVial > 15) {
-      activeVial = 0;  
+  
+      // if it takes too long, move on to next vial. Problem with device or not connected.
+  if ((millis() - lastTimeMeasurementsStarted) > 4000) {
+    activeVial = luxVials[vialCount];
+    vialCount += 1;
+    if (vialCount >= luxLen) {
+      vialCount = 0;
     }
     setMux(activeVial);
-    SerialUSB.println(activeVial);
-    tempControlData = 0;
-    tempSignalData = 0;
+    SerialUSB.print("slow measurements - Vial: ");
+    SerialUSB.print(activeVial);
+    SerialUSB.print("| Time: ");
+    SerialUSB.print(millis());
+    SerialUSB.print("; Last Time: ");
+    SerialUSB.println(lastTimeMeasurementsStarted);
     lastTimeMeasurementsStarted = millis();
   }
 
-  if (string2Complete) {  
-    if (!first) { 
-      SerialUSB.println(input2String);
+  if (string2Complete) {
+    if (!first) { // wait until a full message is sent from ATTiny before recording
       int tabIndex = input2String.indexOf("|");
       ch1Data = input2String.substring(0, tabIndex).toInt();
       ch2Data = input2String.substring(tabIndex + 1, input2String.length() - 1).toInt();
-  
-      tempControlData += ch1Data;
+      
+      tempControlData += ch1Data; // store the data for averaging
       tempSignalData += ch2Data;
       dataCount++;
+
       if (dataCount >= timesAveraged) {
-          output[activeVial] = tempControlData / timesAveraged;
-          output[activeVial + numVials] = tempSignalData / timesAveraged;
-          SerialUSB.print("Vial: ");
-          SerialUSB.println(activeVial);
-          SerialUSB.print("Ch1: ");
-          SerialUSB.println(output[activeVial]);
-          SerialUSB.print("CH2: ");
-          SerialUSB.println(output[activeVial]);
-          tempControlData = 0;
-          tempSignalData = 0;
-          activeVial += 1;
-          dataCount = 0;
-          if (activeVial > 15) {
-            activeVial = 0;
-            lastTimeMeasurementsStarted = millis();
-          }
-          setMux(activeVial);
-          first = true;
+        // average the values for this vial timesAveraged times
+        output[activeVial] = tempControlData / timesAveraged;
+        output[activeVial + numVials] = tempSignalData / timesAveraged;
+        SerialUSB.print("Average Channel1: ");
+        SerialUSB.println(output[activeVial]);
+        SerialUSB.print("Average Channel2: ");
+        SerialUSB.println(output[activeVial + numVials]);
+        tempControlData = 0;
+        tempSignalData = 0;
+        
+        // iterating through just the lux vials
+        activeVial = luxVials[vialCount];
+        vialCount += 1;
+        dataCount = 0;
+        if (vialCount >= luxLen) {
+          vialCount = 0;
+        }
+        setMux(activeVial);
+        first = true;
       }
   
       input2String = "";
       string2Complete = false;
     }
     else {
-      SerialUSB.print("Skipped");
-      SerialUSB.println(input2String);
+      SerialUSB.println();
+      SerialUSB.print("Vial: ");
+      SerialUSB.println(activeVial);
+//      SerialUSB.print("Skipped ATTiny string: ");
+//      SerialUSB.println(input2String);
       first = false;
       input2String = "";
       string2Complete = false;
+      lastTimeMeasurementsStarted = millis();
     }
   }
 
