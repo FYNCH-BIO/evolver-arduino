@@ -8,3 +8,8 @@ The eVOLVER uses SAMD21 mini breakout boards that can be programmed using the Ar
 [SAMD21 breakout board documentation](https://learn.sparkfun.com/tutorials/samd21-minidev-breakout-hookup-guide/samd21-mini-breakout-overview)
 
 Guide for [programming the SAMD21](https://www.evolver.bio/t/installing-arduino-libraries-and-uploading-code/156) for the eVOLVER.
+
+## ATtiny1634
+The ATtiny1634 microcontroller is used only for the luminesence detection module, which is still under development. To program this microcontroller, use [avr-gcc](https://gcc.gnu.org/wiki/avr-gcc). 
+
+[ATtiny1634 documentation](http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-8303-8-bit-AVR-Microcontroller-tinyAVR-ATtiny1634_Datasheet.pdf)
