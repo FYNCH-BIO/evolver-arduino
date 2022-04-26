@@ -6,3 +6,5 @@ The eVOLVER uses SAMD21 mini breakout boards that can be programmed using the Ar
 [General Arduino resources](https://www.arduino.cc/)
 
 [SAMD21 breakout board documentation](https://learn.sparkfun.com/tutorials/samd21-minidev-breakout-hookup-guide/samd21-mini-breakout-overview)
+
+Guide for [programming the SAMD21](https://www.evolver.bio/t/installing-arduino-libraries-and-uploading-code/156) for the eVOLVER.
