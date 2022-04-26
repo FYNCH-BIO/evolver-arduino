@@ -1,6 +1,7 @@
 # evolver-arduino
 Arduino code for the eVOLVER continuous cell culture framework.
 
+## SAMD21
 The eVOLVER uses SAMD21 mini breakout boards that can be programmed using the Arduino IDE. These microcontroller breakout boards allow the eVOLVER to read analog signals from sensors (OD, temperature, etc.) and actuate pumps, stir, LEDs, and any other culture component that is needed.
 
 [General Arduino resources](https://www.arduino.cc/)
