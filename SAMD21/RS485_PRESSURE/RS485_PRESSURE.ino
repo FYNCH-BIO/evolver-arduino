@@ -9,16 +9,16 @@ const int numChannels = 8;
 String address = "pres";
 const String comma = ",";
 const String end_mark = "end";
-evolver_si in("pres", "_!", numChannels + 1);
+evolver_si in("pres", "_!", numChannels + 1); // command string from eVOLVER
 
-float V_SOURCE = 3.3;
+float V_SOURCE = 3.3; // Voltage coming from the Arduino
 
 // Mux Control Pins
 int s0 = 7, s1 = 8, s2 = 9, s3 = 10, SIG_PIN = 0;
 
 double Input[8];
 double Output[8];
-double Setpoint[] = {0,0,0,0,0,0,0,0};
+double Setpoint[] = {0,0,0,0,0,0,0,0}; // change setpoints here (in psi)
 double savedSetpoint[] = {0,0,0,0,0,0,0,0};
 
 double digitalVoltage;
@@ -33,6 +33,7 @@ unsigned long lastControlTime_ms;
 // SET A MAX FOR THE PWM
 int maxPWM = 4095;
 
+// Variables for PID control
 float Kp = 1.5;
 float Ki = 3.5;
 float Kd = 0.00005;
