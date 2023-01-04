@@ -3,22 +3,20 @@
 #include <SAMD21turboPWM.h>
 
 // String Input
-String inputString = "";
-boolean stringComplete = false;
-boolean serialAvailable = true;
+String input_string = "";
+boolean string_complete = false;
 
 int num_vials = 2;
 int active_vial = 0;
-int PDtimes_averaged = 500;
-int pdOutput[] = {60000, 60000};
-int pdInput[] = {255, 255};
+int pd_times_averaged = 20;
+int pd_output[] = {60000, 60000};
 
 int pd_pin[] = {A2, A3};
 int temp_pin[] = {A0, A1};
 
 // General Serial Communication
 String comma = ",";
-String end_mark = "end";
+String end_mark = "end";  
 
 // Photodiode Serial Communication
 int expectedPDinputs = 2;
@@ -82,20 +80,35 @@ class Pump {
     Pump() {}
     void init(int addrInit) {
       addr = addrInit;
-      analogWrite(pumpOutputPin[addr], speedset[0]);
+      if (pumpOutputPin[addr] != 12) {
+        analogWrite(pumpOutputPin[addr], speedset[0]);
+      }
+      else {
+        digitalWrite(12, LOW);  
+      }
     }
 
-    void update() {
+    void update() {  
       unsigned long currentMillis = millis();
       if (currentMillis - previousMillis > timeToPump && pumpRunning) {
-        analogWrite(pumpOutputPin[addr], speedset[0]);
+        if (pumpOutputPin[addr] != 12) {
+          analogWrite(pumpOutputPin[addr], speedset[0]);
+        }
+        else {
+          digitalWrite(12, LOW);  
+        }
         pumpRunning = false; 
       }
 
       if (currentMillis - previousMillis > pumpInterval && !pumpRunning && pumpInterval != 0) {
         previousMillis = currentMillis;
         pumpRunning = true;
-        analogWrite(pumpOutputPin[addr], speedset[1]);  
+        if (pumpOutputPin[addr] != 12) {
+          analogWrite(pumpOutputPin[addr], speedset[1]);
+        }
+        else {
+          digitalWrite(12, HIGH);  
+        }
       }
     }
 
@@ -105,11 +118,25 @@ class Pump {
 
       previousMillis = millis();
       pumpRunning = true;
-      analogWrite(pumpOutputPin[addr], speedset[1]);
+      if (timeToPump > 0) {
+        if (pumpOutputPin[addr] != 12) {
+          analogWrite(pumpOutputPin[addr], speedset[1]);
+        }
+        else {
+          digitalWrite(12, HIGH);  
+        }
+      }
     }
 
     void turnOff() {
-      analogWrite(pumpOutputPin[addr], speedset[0]);
+      if (pumpOutputPin[addr] != 12) {
+        analogWrite(pumpOutputPin[addr], speedset[0]);
+      }
+      else {
+        digitalWrite(12, LOW);  
+      }
+      timeToPump = 0;
+      pumpInterval = 0;
     }
 
     bool isNewChemostat(float newTimeToPump, int newPumpInterval) {
@@ -118,6 +145,10 @@ class Pump {
 
       return (newTimeToPump == timeToPump && newPumpInterval == pumpInterval);
     }
+
+    bool isRunning() {
+      return pumpRunning;
+    }
 };
 
 Pump pumps[numPumps];
@@ -125,17 +156,18 @@ Pump pumps[numPumps];
 void setup() {
   analogReadResolution(16);
   SerialUSB.begin(9600);
-  // reserve 1000 bytes for the inputString
-  inputString.reserve(1000);
+  // reserve 1000 bytes for the input_string
+  input_string.reserve(1000);
 
   // Set up TurboPWM for stir
   pwm.setClockDivider(255, false);
   pwm.timer(2,256, 35000, true);
   pwm.analogWrite(11, 100);
   pwm.analogWrite(13, 100);
+  pinMode(12, OUTPUT);
 
-  for (int i = 0; i < numPumps; i++) {
-    pumps[i].init(i);  
+  for (int i = 0; i < numPumps; i++) {    
+    pumps[i].init(i);
   }
 
   while(!SerialUSB);
@@ -151,184 +183,55 @@ void loop() {
   readTemp();
   readPD();
   serialEvent();
-  if (stringComplete) {
-    pd.analyzeAndCheck(inputString);
-    led.analyzeAndCheck(inputString);
-    stir.analyzeAndCheck(inputString);
-    temp.analyzeAndCheck(inputString);
-    pump.analyzeAndCheck(inputString);
+  if (string_complete) {
+    pd.analyzeAndCheck(input_string);
+    led.analyzeAndCheck(input_string);
+    stir.analyzeAndCheck(input_string);
+    temp.analyzeAndCheck(input_string);
+    pump.analyzeAndCheck(input_string);
 
     // Clear input string, avoid accumulation of previous message
-    inputString = "";
+    input_string = "";
 
-    // Photodiode logic
     if (pd.addressFound) {
-      if (pd.input_array[0] == "i" || pd.input_array[0] == "r") {
-        saved_PD_averaged = pd.input_array[1].toInt();
-        new_PDinput = true;
-        
-        String outputString = photodiode_address + "b,";
-        for (int n = 0; n < num_vials; n++) {
-            outputString += pdOutput[n];
-            outputString += comma;
-        }  
-        outputString += end_mark;
-        SerialUSB.println(outputString);
-
-      }
-      if (pd.input_array[0] == "a" && new_PDinput) {
-        PDtimes_averaged = saved_PD_averaged;
-        new_PDinput = false;
-      }      
+      photodiodeLogic();
     }
 
-    // LED Logic
     if (led.addressFound) {
-      if (led.input_array[0] == "i" || led.input_array[0] == "r") {
-        for (int n = 1; n < num_vials+1; n++) {
-          saved_LEDinputs[0] = led.input_array[1].toInt();
-          saved_LEDinputs[0] = led.input_array[1].toInt();
-          new_LEDinput = true;
-        String outputString = led_address + "e,";
-        for (int n = 1; n < num_vials + 1; n++) {
-          outputString += led.input_array[n];
-          outputString += comma;
-        }
-        outputString += end_mark;
-        SerialUSB.println(outputString);
-        
-        }
-        if (led.input_array[0] == "a" && new_LEDinput) {        
-          analogWrite(4, saved_LEDinputs[0]);
-          analogWrite(5, saved_LEDinputs[1]);
-          new_LEDinput = false;
-        }
-        led.addressFound = false;
-        inputString = "";
-      }
-      if (inputString.length() > 20000) {
-        inputString = "";  
-      }
-      led.addressFound = false;
+      ledLogic();
     }
 
-    // Temp logic
     if (temp.addressFound) {
-      if (temp.input_array[0] == "i" || temp.input_array[0] == "r") {
-        for (int i = 1; i < num_vials + 1; i++) {
-          temp_saved_inputs[i-1] = temp.input_array[i].toInt();  
-        }
-        temp_new_input = true;
-        
-        String outputString = temp_address + "b,";
-        for (int n = 0; n < num_vials; n++) {
-            outputString += String((int)tempInput[n]);
-            outputString += comma;
-        }  
-        outputString += end_mark;
-        SerialUSB.println(outputString);
-
-      }
-      if (temp.input_array[0] == "a" && temp_new_input) {
-        for (int i = 0; i < num_vials; i++) {
-          tempSetpoint[i] = (double)temp_saved_inputs[i];        
-        }
-        temp_new_input = false;
-      }
-      temp.addressFound = false;
+      tempLogic();
     }
 
-    // Stir logic
-    if (stir.addressFound) {     
-      if(stir.input_array[0] == "i" || stir.input_array[0] == "r") {
-        for (int i = 1; i < num_vials+1; i++) {
-          stir_saved_inputs[i-1] = stir.input_array[i].toInt();
-        }
-        String outputString = stir_address + "e,";
-        for (int n = 1; n < num_vials + 1; n++) {
-          outputString += stir.input_array[n];
-          outputString += comma;
-        }
-        outputString += end_mark;
-        SerialUSB.println(outputString);
-        stir_new_input = true;
-      }
-
-      if (stir.input_array[0] == "a" && stir_new_input) {
-        stir_new_input = false;
-        for (int i = 0; i < num_vials; i++) {
-          if ((int)stir_saved_inputs[i] > 0) {           
-            pwm.analogWrite(stirOutputPin[i], 500);
-            delay(50);
-          }       
-          pwm.analogWrite(stirOutputPin[i], (int)stir_saved_inputs[i] * 10);
-        }
-      }
-      stir.addressFound = false;
+    if (stir.addressFound) {
+      stirLogic();
     }
 
-    //Pump logic
     if (pump.addressFound) {
-      if (pump.input_array[0] == "i" || pump.input_array[0] == "r") {
-        for (int i = 1; i < numPumps+1; i++) {
-          pumpSavedInputs[i-1] = pump.input_array[i];  
-        }
-        pump_new_input = true;
-
-        String outputString = pumpAddress + "e,";
-        for (int n = 1; n < numPumps + 1; n++) {
-          outputString += pump.input_array[n];
-          outputString += comma;
-        }
-        outputString += end_mark;
-        SerialUSB.println(outputString);
-    
-      }
-      if (pump.input_array[0] == "a" && pump_new_input) {
-        for (int i = 0; i < numPumps; i++) {
-          if (pumpSavedInputs[i] != "--") {
-            int splitIndx = pumpSavedInputs[i].indexOf("|");
-            int ippSplitIndx = pumpSavedInputs[i].indexOf("|", splitIndx+1);
-            if (splitIndx == -1) {
-              timeToPump = pumpSavedInputs[i].toFloat();
-              pumpInterval = 0;
-            }
-            else if (ippSplitIndx == -1) {
-              timeToPump = pumpSavedInputs[i].substring(0, splitIndx).toFloat();
-              pumpInterval = pumpSavedInputs[i].substring(splitIndx+1).toInt();
-            }
-            else {
-              // IPP logic not supported!
-              ipp++;
-            }
-  
-            if (pumpInterval != 0 && pumps[i].isNewChemostat(timeToPump, pumpInterval)) {
-              // unaltered chemostat
-              SerialUSB.print("Unaltered chemostat: ");
-              SerialUSB.println(i);
-            }
-            else if (ippSplitIndx == -1) {
-              pumps[i].setPump(timeToPump, pumpInterval);  
-            }
-          }
-        }
-        pump_new_input = false;
-      }      
+      pumpLogic();  
     }
   }
-  stringComplete = false;
-  inputString = "";
+
+  // Must be executed every loop
+  string_complete = false;
+  input_string = "";
   for (int i = 0; i < numPumps; i++) {
-    pumps[i].update();  
+    pumps[i].update();
+  }
+
+  if (input_string.length() > 20000) {
+    input_string = "";  
   }
 }
 
 void serialEvent() {
   while (SerialUSB.available()) {
     char inChar = (char)SerialUSB.read();
-    inputString += inChar;
+    input_string += inChar;
     if (inChar == '!') {
-      stringComplete = true;
+      string_complete = true;
       break;
     }
   }
@@ -354,15 +257,15 @@ void dataResponse(String addr, double data[]) {
 
 void readPD() {
   unsigned long total = 0;
-  for (int i=0; i < PDtimes_averaged; i++) {
+  for (int i=0; i < pd_times_averaged; i++) {
     total = total + analogRead(pd_pin[active_vial]);
     serialEvent();
-    if (stringComplete) {
+    if (string_complete) {
       break;
     }
   }
-  if (!stringComplete) {
-    pdOutput[active_vial] = total / PDtimes_averaged;
+  if (!string_complete) {
+    pd_output[active_vial] = total / pd_times_averaged;
     if (active_vial == 1) {
       active_vial = 0;
     }
@@ -394,4 +297,150 @@ void readTemp() {
     int set_value = tempOutput[i];
     analogWrite(tempOutputPin[i], (255 - set_value));
   }
+}
+
+void photodiodeLogic() {
+  if (pd.input_array[0] == "i" || pd.input_array[0] == "r") {
+    saved_PD_averaged = pd.input_array[1].toInt();
+    new_PDinput = true;
+    
+    String outputString = photodiode_address + "b,";
+    for (int n = 0; n < num_vials; n++) {
+        outputString += pd_output[n];
+        outputString += comma;
+    }  
+    outputString += end_mark;
+    SerialUSB.println(outputString);
+  
+  }
+  if (pd.input_array[0] == "a" && new_PDinput) {
+    pd_times_averaged = saved_PD_averaged;
+    new_PDinput = false;
+  }
+  pd.addressFound = false;  
+}
+
+void ledLogic() {
+  if (led.input_array[0] == "i" || led.input_array[0] == "r") {
+    for (int n = 1; n < num_vials+1; n++) {
+      saved_LEDinputs[n-1] = led.input_array[n].toInt();
+      new_LEDinput = true;
+    }
+    String outputString = led_address + "e,";
+    for (int n = 1; n < num_vials + 1; n++) {
+      outputString += led.input_array[n];
+      outputString += comma;
+    }
+    outputString += end_mark;
+    SerialUSB.println(outputString);
+  }
+  if (led.input_array[0] == "a" && new_LEDinput) {        
+    analogWrite(4, saved_LEDinputs[0]);
+    analogWrite(5, saved_LEDinputs[1]);
+    new_LEDinput = false;
+  }
+  input_string = "";
+  led.addressFound = false;  
+}
+
+void tempLogic() {
+  if (temp.input_array[0] == "i" || temp.input_array[0] == "r") {
+    for (int i = 1; i < num_vials + 1; i++) {
+      temp_saved_inputs[i-1] = temp.input_array[i].toInt();  
+    }
+    temp_new_input = true;
+    
+    String outputString = temp_address + "b,";
+    for (int n = 0; n < num_vials; n++) {
+        outputString += String((int)tempInput[n]);
+        outputString += comma;
+    }  
+    outputString += end_mark;
+    SerialUSB.println(outputString);
+  
+  }
+  if (temp.input_array[0] == "a" && temp_new_input) {
+    for (int i = 0; i < num_vials; i++) {
+      tempSetpoint[i] = (double)temp_saved_inputs[i];        
+    }
+    temp_new_input = false;
+  }
+  temp.addressFound = false;  
+}
+
+void stirLogic() {
+  if(stir.input_array[0] == "i" || stir.input_array[0] == "r") {
+    for (int i = 1; i < num_vials+1; i++) {
+      stir_saved_inputs[i-1] = stir.input_array[i].toInt();
+    }
+    String outputString = stir_address + "e,";
+    for (int n = 1; n < num_vials + 1; n++) {
+      outputString += stir.input_array[n];
+      outputString += comma;
+    }
+    outputString += end_mark;
+    SerialUSB.println(outputString);
+    stir_new_input = true;
+  }
+  
+  if (stir.input_array[0] == "a" && stir_new_input) {
+    stir_new_input = false;
+    for (int i = 0; i < num_vials; i++) {
+      if ((int)stir_saved_inputs[i] > 0) {           
+        pwm.analogWrite(stirOutputPin[i], 500);
+        delay(75);
+      }       
+      pwm.analogWrite(stirOutputPin[i], (int)stir_saved_inputs[i] * 10);
+    }
+  }
+  stir.addressFound = false;  
+}
+
+void pumpLogic() {
+  if (pump.input_array[0] == "i" || pump.input_array[0] == "r") {
+    for (int i = 1; i < numPumps+1; i++) {
+      pumpSavedInputs[i-1] = pump.input_array[i];  
+    }
+    pump_new_input = true;
+  
+    String outputString = pumpAddress + "e,";
+    for (int n = 1; n < numPumps + 1; n++) {
+      outputString += pump.input_array[n];
+      outputString += comma;
+    }
+    outputString += end_mark;
+    SerialUSB.println(outputString);
+  
+  }
+  if (pump.input_array[0] == "a" && pump_new_input) {
+    for (int i = 0; i < numPumps; i++) {
+      if (pumpSavedInputs[i] != "--") {
+        int splitIndx = pumpSavedInputs[i].indexOf("|");
+        int ippSplitIndx = pumpSavedInputs[i].indexOf("|", splitIndx+1);
+        if (splitIndx == -1) {
+          timeToPump = pumpSavedInputs[i].toFloat();
+          pumpInterval = 0;
+        }
+        else if (ippSplitIndx == -1) {
+          timeToPump = pumpSavedInputs[i].substring(0, splitIndx).toFloat();
+          pumpInterval = pumpSavedInputs[i].substring(splitIndx+1).toInt();
+        }
+        else {
+          // IPP logic not supported!
+          ipp++;
+        }
+  
+        if (pumpInterval != 0 && pumps[i].isNewChemostat(timeToPump, pumpInterval)) {
+          // unaltered chemostat
+          SerialUSB.print("Unaltered chemostat: ");
+          SerialUSB.println(i);
+        }
+        else if (ippSplitIndx == -1) {
+          pumps[i].setPump(timeToPump, pumpInterval);  
+        }
+      }
+    }
+    pump_new_input = false;
+  }
+  pump.addressFound = false;  
 }
