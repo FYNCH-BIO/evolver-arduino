@@ -1,6 +1,6 @@
-// Recurring Command: 'od_135r,1000,_!'
-// Immediate Command: 'od_135i,1000,_!'
-// Acknowledgement to Run: 'od_135a,1000,_!'
+// Recurring Command: 'od_90r,1000,_!'
+// Immediate Command: 'od_90i,1000,_!'
+// Acknowledgement to Run: 'od_90a,1000,_!'
 
 
 #include <evolver_si.h>
@@ -21,8 +21,8 @@ int output[] = {60000,60000,60000,60000,60000,60000,60000,60000,60000,60000,6000
 String comma = ",";
 String end_mark = "end";
 int expected_PDinputs = 2;
-String photodiode_address = "od_135";
-evolver_si in("od_135", "_!", expected_PDinputs);//2 CSV Inputs from RPI
+String photodiode_address = "od_90";
+evolver_si in("od_90", "_!", expected_PDinputs);//2 CSV Inputs from RPI
 boolean new_PDinput = false;
 int saved_PDaveraged = 1000; // saved input from Serial Comm.
 
