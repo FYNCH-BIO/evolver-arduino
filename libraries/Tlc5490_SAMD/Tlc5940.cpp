@@ -178,7 +178,8 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
   
   //Datasheet page 95
   // Initialize GCLK 
-  REG_GCLK_GENDIV = GCLK_GENDIV_DIV(3) |  // Divide the 48MHz clock source by divisor 1: 48MHz/1=48MHz
+  REG_GCLK_GENDIV = 
+    GCLK_GENDIV_DIV(TLC_GCLK_DIV) |       // Divide the 48MHz clock source by divisor : 48MHz/DIV
     GCLK_GENDIV_ID(4);                    // Select Generic Clock (GCLK) 4
   while (GCLK->STATUS.bit.SYNCBUSY);      // Wait for synchronization
 
@@ -247,7 +248,7 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
     enable_GSCLK_2();                        // output on TCC0:7 //arduino pin 7
   }
 
-  REG_TCC1_CC0 = 16360;                      //set TCC1 interrupt timing
+  REG_TCC1_CC0 = TLC_PWM_PERIOD;             // set TCC1 interrupt timing
   while (TCC1->SYNCBUSY.bit.CC0);            // Wait for synchronization
 
   //Datasheet page 703
@@ -463,9 +464,9 @@ void tlc_shift8(uint8_t pwm_val, uint8_t byte)
   if(pwm_val & 0x1){
     for (uint8_t bit = 0x80; bit; bit >>= 1) {
       if (bit & byte) {
-  SIN_PORT_1 |= (1 << SIN_PIN_1);  // set SIN high (left PWM)
+        SIN_PORT_1 |= (1 << SIN_PIN_1);  // set SIN high (left PWM)
       } else {
-  SIN_PORT_1 &=~ (1 << SIN_PIN_1); // set SIN low (left PWM)
+        SIN_PORT_1 &=~ (1 << SIN_PIN_1); // set SIN low (left PWM)
       }
       pulse_pin(SCLK_PORT_1, SCLK_PIN_1);
     }

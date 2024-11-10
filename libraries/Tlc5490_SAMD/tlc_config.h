@@ -61,7 +61,7 @@
     of the first TLC to the SIN (TLC pin 26) of the next.  The rest of the pins
     are attached normally.
     \note Each TLC needs it's own IREF resistor */
-#define NUM_TLCS    3
+#define NUM_TLCS    1
 
 /** Determines how data should be transfered to the TLCs.  Bit-banging can use
     any two i/o pins.
@@ -98,20 +98,37 @@
     Default is uint8_t, which supports up to 16 TLCs. */
 #define TLC_CHANNEL_TYPE    uint8_t
 
-/** Determines how long each PWM period should be, in clocks.
-    \f$\displaystyle f_{PWM} = \frac{f_{osc}}{2 * TLC\_PWM\_PERIOD} Hz \f$
-    \f$\displaystyle TLC\_PWM\_PERIOD = \frac{f_{osc}}{2 * f_{PWM}} \f$
-    This is related to TLC_GSCLK_PERIOD:
-    \f$\displaystyle TLC\_PWM\_PERIOD =
-       \frac{(TLC\_GSCLK\_PERIOD + 1) * 4096}{2} \f$
-    \note The default of 8192 means the PWM frequency is 976.5625Hz */
-#define TLC_PWM_PERIOD   16384 
 
-/** Determines how long each period GSCLK is.
-    This is related to TLC_PWM_PERIOD:
-    \f$\displaystyle TLC\_GSCLK\_PERIOD =
-       \frac{2 * TLC\_PWM\_PERIOD}{4096} - 1 \f$
-    \note Default is 3 */
-#define TLC_GSCLK_PERIOD    7
+/** -------------------- Timing configuration ---------------------------------
+    To achieve a target PWM frequency f, use the following equation:
+    
+        f = 48 MHz / (TLC_GCLK_DIV * TLC_PWM_PERIOD)
+
+    Don't forget to also set TLC_GSCLK_PERIOD accordingly:
+
+        TLC_GSCLK_PERIOD = (TLC_PWM_PERIOD / 4096) - 1 
+
+    Example configurations using full duty range of 0-4095
+    PWM frequency       TLC_GCLK_DIV    TLC_PWM_PERIOD      TLC_GSCLK_PERIOD
+    ~976 Hz             2               24576               5
+    ~5859 Hz            1               8192                1
+
+    WARNING: this high frequency config will only use duty levels 0-2047
+    PWM frequency       TLC_GCLK_DIV    TLC_PWM_PERIOD      TLC_GSCLK_PERIOD
+    ~11,719 Hz          1               4096                1               
+*/
+
+/** Sets the frequency of the general clock (GCLK) by dividing the 48 MHz 
+    system clock by the specified whole number factor. */
+#define TLC_GCLK_DIV        1
+
+/** Determines how long each PWM period should be, in cycles of the general
+    clock. */
+#define TLC_PWM_PERIOD      4096
+
+/** Determines the period of the grayscale clock (GSCLK) timer. The effective
+    period is (TLC_GSCLK_PERIOD + 1) cycles of the general clock. 
+    WARNING: The minimum value TLC_GSCLK_PERIOD can take is 1. */
+#define TLC_GSCLK_PERIOD    1
 
 #endif
