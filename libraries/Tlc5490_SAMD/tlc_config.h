@@ -120,15 +120,15 @@
 
 /** Sets the frequency of the general clock (GCLK) by dividing the 48 MHz 
     system clock by the specified whole number factor. */
-#define TLC_GCLK_DIV        1
+#define TLC_GCLK_DIV        2
 
 /** Determines how long each PWM period should be, in cycles of the general
     clock. */
-#define TLC_PWM_PERIOD      4096
+#define TLC_PWM_PERIOD      24576
 
 /** Determines the period of the grayscale clock (GSCLK) timer. The effective
     period is (TLC_GSCLK_PERIOD + 1) cycles of the general clock. 
     WARNING: The minimum value TLC_GSCLK_PERIOD can take is 1. */
-#define TLC_GSCLK_PERIOD    1
+#define TLC_GSCLK_PERIOD    5
 
 #endif
