@@ -175,6 +175,17 @@ void Tlc5940::init(uint8_t pwm_val, uint16_t initialValue)
   
   REG_TCC1_INTENSET |=  TCC_INTENSET_MC0; // set PWM interrupts
 
+  if (pos_2) {
+    // Force pins 7,8,9,10 to OUTPUT & LOW for right PWM board
+    pinMode(7, OUTPUT);
+    digitalWrite(7, LOW);
+    pinMode(8, OUTPUT);
+    digitalWrite(8, LOW);
+    pinMode(9, OUTPUT);
+    digitalWrite(9, LOW);
+    pinMode(10, OUTPUT);
+    digitalWrite(10, LOW);
+  }
   
   //Datasheet page 95
   // Initialize GCLK 
